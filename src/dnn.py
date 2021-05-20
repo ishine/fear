@@ -131,8 +131,12 @@ class FEDNN:  # feature engineering deep neural network
         data = self._create_direction(data)
         data = self._create_lags(data)
         data = self._create_features(data)
-
         return data
+
+    def create_model(self, data: pd.DataFrame):
+        data = data.copy()
+        self.mu, self.std = data.mean(), data.std()
+        data_normalized = s
 
 
 if __name__ == "__main__":

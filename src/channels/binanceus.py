@@ -91,7 +91,7 @@ class BinanceUS:
         df.index = pd.to_datetime(df.timestamp, unit="ms")
         df.drop("timestamp", axis=1, inplace=True)
         df = df[["open", "high", "low", "close", "volume"]]
-
+        logger.info(f"Fetched bars for '{ticker}'")
         return df
 
 

@@ -61,6 +61,7 @@ class Alpaca:
                 end_time.strftime(DTFORMAT),
                 adjustment="raw",
             ).df
+            logger.info(f"Fetched bars for '{ticker}'")
             return df
         except Exception as e:
             logger.warning(

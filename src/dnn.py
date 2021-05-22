@@ -12,10 +12,16 @@ from finta import TA as ta
 from tqdm import trange, tqdm
 from sklearn import preprocessing
 import tensorflow as tf
+
+tf.get_logger().setLevel("ERROR")
+tf.autograph.set_verbosity(1)
+
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam, RMSprop
+from keras.utils.vis_utils import plot_model
 from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -26,6 +32,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+MODELPATH = "models/"
+
 
 class FEDNN:  # feature engineering deep neural network
     def __init__(
@@ -34,7 +42,7 @@ class FEDNN:  # feature engineering deep neural network
         units: int = 32,
         learning_rate: float = 0.0001,
         lags: int = 5,
-        cols: list = [],
+        cols: list = ["return"],
         epochs: int = 25,
     ) -> None:
         """dfcols is the labels for the dataframe that you recieve"""
@@ -131,8 +139,13 @@ class FEDNN:  # feature engineering deep neural network
             df["volume_ma"] = df["volume"].rolling(5).mean().shift(1)
             df["volatility"] = df["return"].rolling(20).std().shift(1)
             df["distance"] = (df["close"] - df["close"].rolling(50).mean()).shift(1)
-
-            self._add_columns("momentum", "volatility", "distance", "14 period RSI")
+            # print(df.columns)
+            self._add_columns(
+                "momentum",
+                "volatility",
+                "distance",
+                "14 period RSI",
+            )
             ### drop na
             df.dropna(inplace=True)
         except Exception as e:
@@ -173,6 +186,15 @@ class FEDNN:  # feature engineering deep neural network
         self.model.compile(
             optimizer=self.optimizer, loss="binary_crossentropy", metrics=["accuracy"]
         )
+        # save model
+        self.model.save(MODELPATH + "latest")
+        plot_model(
+            self.model,
+            to_file=MODELPATH + "model_plot.png",
+            show_shapes=True,
+            show_layer_names=True,
+        )
+
         if summary:
             self.model.summary()
 
@@ -192,41 +214,45 @@ class FEDNN:  # feature engineering deep neural network
         data_normalized = self.normalize(data)
         pred = np.where(self.model.predict(data_normalized[self.cols]) > 0.5, 1, 0)
         data["prediction"] = np.where(pred > 0, 1, -1)
+        data["prediction"] = (
+            data["prediction"] - data["prediction"].shift(1)
+        ) / 2  # add holding as 0
+        data.loc[data.index[0], "prediction"] = 1
+        data["prediction"] = data["prediction"].astype(int)
         data["strategy"] = data["prediction"] * data["return"]
         return data
 
-    def evaluate(self, data: pd.DataFrame):
-        """Vectorize evaluate"""
-        logger.info(f"Returns:\n{data[['return', 'strategy']].sum().apply(np.exp)}")
-        data[["return", "strategy"]].cumsum().apply(np.exp).plot(figsize=(10, 6))
+    def evaluate(self, data: pd.DataFrame, tt_split: int = 0.8):
+        """Vectorize evaluate - split data into train and test, build, and evaluate"""
+        # prime data
+        data = self.prime_data(data)
 
+        # split
+        train, test = (
+            data[: int(data.shape[0] * tt_split)],
+            data[int(data.shape[0] * tt_split) :],
+        )
 
-if __name__ == "__main__":
-    ape = Alpaca()
+        # train test sizes
+        logger.info(
+            f"Train: {train.index[0]} - {train.index[-1]} ({train.shape[0]}, {len(self.cols)})"
+        )
+        logger.info(
+            f"Test: {test.index[0]} - {test.index[-1]} ({test.shape[0]}, {len(self.cols)})"
+        )
+        # make model
+        self.build(train)
 
-    symbol = "aal"
-    data = ape.get_bars(
-        symbol,
-        timeframe=TimeFrame.Minute,
-        start_time=datetime.now() - timedelta(days=14),
-    )
+        # train model
+        self.train(train)
 
-    logger.info(f"Got data for {symbol}")
-
-    fednn = FEDNN(cols=["return"])
-    # prime data
-    data = fednn.prime_data(data)
-    # split
-    tt_split = 0.8
-    train, test = (
-        data[: int(data.shape[0] * tt_split)],
-        data[int(data.shape[0] * tt_split) :],
-    )
-    # make model
-    fednn.build(train)
-    # train model
-    fednn.train(train)
-    # predict
-    predictions = fednn.predict(test)
-    # evaluate
-    fednn.evaluate(predictions)
+        # predict
+        predictions = self.predict(test)
+        print(predictions[["close", "return", "prediction", "strategy"]])
+        # evaluate
+        logger.info(
+            f"Returns:\n{predictions[['return', 'strategy']].sum().apply(np.exp)}"
+        )
+        predictions[["return", "strategy"]].cumsum().apply(np.exp).plot(figsize=(10, 6))
+        plt.show()
+        plt.close("all")

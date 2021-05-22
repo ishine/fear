@@ -48,7 +48,7 @@ class FEDNN:  # feature engineering deep neural network
         self.units = units
         self.optimizer = Adam(learning_rate=learning_rate)
 
-        self.lags = lags
+        self.lags = lags  # number of lags
         self.cols = [f"lag_{l}" for l in range(1, self.lags + 1)]  # col labels
         self.epochs = epochs
 
@@ -153,8 +153,8 @@ class FEDNN:  # feature engineering deep neural network
             data = data[[self.close]]
         data = self._create_returns(data)
         data = self._create_direction(data)
-        data = self._create_lags(data)
         data = self._create_features(data)
+        data = self._create_lags(data)
         return data
 
     def fit_scaler(self, data: pd.DataFrame):
@@ -169,6 +169,7 @@ class FEDNN:  # feature engineering deep neural network
 
     def build(self, data: pd.DataFrame, summary: bool = False):
         """Compile model"""
+        print(self.cols)
         self.fit_scaler(data)
         self.model = Sequential()
         self.model.add(
@@ -177,20 +178,23 @@ class FEDNN:  # feature engineering deep neural network
         self.model.add(Dense(self.units, activation="relu"))
         self.model.add(Dense(1, activation="sigmoid"))
         self.model.compile(
-            optimizer=self.optimizer, loss="binary_crossentropy", metrics="accuracy"
+            optimizer=self.optimizer, loss="binary_crossentropy", metrics=["accuracy"]
         )
         if summary:
-            logging.info(self.model.summary())
+            self.model.summary()
+        return self.model
 
-    def train(self, data: pd.DataFrame, verbose: int = 1):
+    def train(self, data: pd.DataFrame):
         """Train the model"""
         data_normalized = self.normalize(data)  # maybe move to outside funct or sum
         self.model.fit(
             data_normalized[self.cols],
             data_normalized["direction"],
             epochs=self.epochs,
-            verbose=verbose,
+            verbose=False,
         )
+        self.model.evaluate(data_normalized[self.cols], data["direction"])
+        return self.model
 
 
 if __name__ == "__main__":
@@ -207,3 +211,6 @@ if __name__ == "__main__":
     fednn.build(data, summary=True)
     # train model
     fednn.train(data)
+    # predict
+    # p = fednn.predict(data)
+    # print(p)

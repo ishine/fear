@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from inspect import CO_GENERATOR
 import logging, os
 from alpaca_trade_api.rest import TimeFrame
 
@@ -21,18 +22,17 @@ from keras.layers import Dense
 from keras.optimizers import Adam, RMSprop
 from keras.utils.vis_utils import plot_model
 from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
+import plotly.express as px
+
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
 os.environ["NUMEXPR_MAX_THREADS"] = "8"
 
-logging.basicConfig(
-    format="[%(name)s] %(levelname)s %(asctime)s %(message)s", level=logging.INFO
-)
 logger = logging.getLogger(__name__)
 
-MODELPATH = "models/"
+MODELPATH = "models"
+CHARTPATH = "chart"
 
 
 class FEDNN:  # feature engineering deep neural network
@@ -161,6 +161,7 @@ class FEDNN:  # feature engineering deep neural network
         data = self._create_features(data)
         data = self._create_lags(data)
         self.cols = list(set(self.cols))  # remove duplicates
+        # logger.info("Primed data")
         return data
 
     def fit_scaler(self, data: pd.DataFrame):
@@ -175,7 +176,8 @@ class FEDNN:  # feature engineering deep neural network
 
     def build(self, data: pd.DataFrame, summary: bool = False):
         """Compile model"""
-        logger.info(f"Using features {self.cols}")
+        data = self.prime_data(data)
+        logger.info(f"Building model using features {self.cols}")
         self.fit_scaler(data)
         self.model = Sequential()
         self.model.add(
@@ -187,10 +189,14 @@ class FEDNN:  # feature engineering deep neural network
             optimizer=self.optimizer, loss="binary_crossentropy", metrics=["accuracy"]
         )
         # save model
-        self.model.save(MODELPATH + "latest")
+
+        if not os.path.exists(MODELPATH):
+            os.mkdir(MODELPATH)
+
+        self.model.save(os.path.join(MODELPATH, "latest"))
         plot_model(
             self.model,
-            to_file=MODELPATH + "model_plot.png",
+            to_file=os.path.join(MODELPATH, "model_plot.png"),
             show_shapes=True,
             show_layer_names=True,
         )
@@ -200,6 +206,8 @@ class FEDNN:  # feature engineering deep neural network
 
     def train(self, data: pd.DataFrame):
         """Train the model"""
+        data = self.prime_data(data)
+        logger.info(f"Training model on {data.shape[0]} records")
         data_normalized = self.normalize(data)  # maybe move to outside funct or sum
         self.model.fit(
             data_normalized[self.cols],
@@ -211,6 +219,7 @@ class FEDNN:  # feature engineering deep neural network
 
     def predict(self, data: pd.DataFrame):
         """Predict"""
+        data = self.prime_data(data)
         data_normalized = self.normalize(data)
         pred = np.where(self.model.predict(data_normalized[self.cols]) > 0.5, 1, 0)
         data["prediction"] = np.where(pred > 0, 1, -1)
@@ -222,10 +231,26 @@ class FEDNN:  # feature engineering deep neural network
         data["strategy"] = data["prediction"] * data["return"]
         return data
 
-    def evaluate(self, data: pd.DataFrame, tt_split: int = 0.8):
+    def get_signal(self, data: pd.DataFrame):
+        """
+        Get a signal from an already trained model
+        """
+        truncated = self.prime_data(data)
+
+        predset = self.predict(truncated)
+        prediction = predset.iloc[-1].prediction
+        if prediction == 1:
+            return "buy"
+        elif prediction == -1:
+            return "sell"
+        else:
+            return "hold"
+
+    def evaluate(
+        self, data: pd.DataFrame, tt_split: int = 0.8, securityname: str = None
+    ):
         """Vectorize evaluate - split data into train and test, build, and evaluate"""
-        # prime data
-        data = self.prime_data(data)
+        # prime data happens inside each function
 
         # split
         train, test = (
@@ -248,11 +273,45 @@ class FEDNN:  # feature engineering deep neural network
 
         # predict
         predictions = self.predict(test)
-        print(predictions[["close", "return", "prediction", "strategy"]])
+
+        # count trades
+        num_trades = (predictions["prediction"] != 0).sum()
+
+        logger.info(f"Trades made: {num_trades}")
         # evaluate
-        logger.info(
-            f"Returns:\n{predictions[['return', 'strategy']].sum().apply(np.exp)}"
+
+        # define returns
+        returns = predictions[["return", "strategy"]].cumsum().apply(np.exp)
+
+        logger.info(f"Returns [{securityname}]:\n{returns.tail(1)}")
+        fig = px.line(
+            returns, title="Strategy vs buy and hold returns", width=1280, height=720
         )
-        predictions[["return", "strategy"]].cumsum().apply(np.exp).plot(figsize=(10, 6))
-        plt.show()
-        plt.close("all")
+        fig.update_layout(
+            xaxis=dict(
+                title_text="Date",
+            ),
+            yaxis=dict(
+                title_text="Return",
+            ),
+        )
+
+        if securityname:
+            if not os.path.exists(CHARTPATH):
+                os.mkdir(CHARTPATH)
+
+            path = os.path.join(CHARTPATH, securityname)
+
+            if not os.path.exists(path):
+                os.mkdir(path)
+
+            dt = datetime.now().strftime("%m-%d-%Y_%H-%M-%S")
+
+            imgname = securityname + "_" + dt + ".png"
+            htmname = securityname + "_" + dt + ".html"
+
+            imgpath = os.path.join(path, imgname)
+            htmpath = os.path.join(path, htmname)
+
+            fig.write_image(imgpath)
+            fig.write_html(htmpath)

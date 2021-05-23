@@ -70,10 +70,14 @@ class Momentum:
         signal = data.signal[-1]
         return signal
 
+    def backtest(self, data=pd.DataFrame, loud=True):
+        pass
+
 
 if __name__ == "__main__":
     ape = Alpaca()
     mom = Momentum()
     data = ape.get_bars("pg")
-    signal = mom.get_signal(data)
-    logger.info(f"SIGNAL: {signal}")
+    # signal = mom.get_signal(data)
+    # logger.info(f"SIGNAL: {signal}")
+    print(mom.backtest(data))

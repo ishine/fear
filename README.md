@@ -1,13 +1,3 @@
-# monte-carlo
+# FEAR - Feature Engineered Augumented Returns
 
-Monte carlo based stock prediction. Combine arima, monte-carlo, sentiment.
-
-## files
-
-- channels
-  - alpaca (alpaca api)
-  - binanceus (binance api)
-- brown (monte carlo simulator)
-- arima (arima prediction)
-- dnn (dnn prediction)
-- screener (find good stocks with finviz)
+This project uses a multivariate deep neural network to predict stock price direction

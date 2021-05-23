@@ -140,3 +140,5 @@ cython_debug/
 # keys
 keys/*
 Montecarlo Automated.py
+.DS_Store
+*/.DS_Store

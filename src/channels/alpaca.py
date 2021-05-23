@@ -9,9 +9,6 @@ from multiprocessing import Pool, Process
 import random
 import logging
 
-logging.basicConfig(
-    format="[%(name)s] %(levelname)s %(asctime)s %(message)s", level=logging.INFO
-)
 logger = logging.getLogger(__name__)
 
 # Data viz
@@ -53,19 +50,24 @@ class Alpaca:
         -------
         df : pd.DataFrame
         """
+        start = start_time.strftime(DTFORMAT)
+        end = end_time.strftime(DTFORMAT)
+
         try:
             df = self.api.get_bars(
                 ticker,
                 timeframe,
-                start_time.strftime(DTFORMAT),
-                end_time.strftime(DTFORMAT),
+                start,
+                end,
                 adjustment="raw",
             ).df
-            logger.info(f"Fetched bars for '{ticker}'")
+            logger.info(
+                f"Fetched {df.shape[0]} bars for '{ticker}' from {start} to {end} with freq {timeframe}"
+            )
             return df
         except Exception as e:
             logger.warning(
-                f"Couldn't get bars for {ticker} from {start_time} to {end_time} with freq {timeframe} ({e})"
+                f"Couldn't get bars for {ticker} from {start} to {end} with freq {timeframe} ({e})"
             )
             return pd.DataFrame()
 

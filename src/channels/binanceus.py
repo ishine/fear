@@ -8,9 +8,6 @@ DTFORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 import logging
 
-logging.basicConfig(
-    format="[%(name)s] %(levelname)s %(asctime)s %(message)s", level=logging.INFO
-)
 logger = logging.getLogger(__name__)
 
 
@@ -56,43 +53,54 @@ class BinanceUS:
         -------
         df : pd.DataFrame
         """
-        klines = self.client.get_historical_klines(
-            ticker, interval, start_time.strftime(DTFORMAT), end_time.strftime(DTFORMAT)
-        )  # raw
+        start = start_time.strftime(DTFORMAT)
+        end = end_time.strftime(DTFORMAT)
 
-        # convert to float
-        for i in range(len(klines)):
-            for j in range(1, len(klines[i])):
-                klines[i][j] = float(klines[i][j])
-        # turn into dataframe
-        index = "open_time"
-        df = (
-            pd.DataFrame(
-                klines,
-                columns=[
-                    "open_time",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume",
-                    "close_time",
-                    "quote_volume",
-                    "trades",
-                    "taker_buy_base_vol",
-                    "taker_buy_quote_vol",
-                    "ignore",
-                ],
+        try:
+            klines = self.client.get_historical_klines(
+                ticker, interval, start, end
+            )  # raw
+
+            # convert to float
+            for i in range(len(klines)):
+                for j in range(1, len(klines[i])):
+                    klines[i][j] = float(klines[i][j])
+            # turn into dataframe
+            index = "open_time"
+            df = (
+                pd.DataFrame(
+                    klines,
+                    columns=[
+                        "open_time",
+                        "open",
+                        "high",
+                        "low",
+                        "close",
+                        "volume",
+                        "close_time",
+                        "quote_volume",
+                        "trades",
+                        "taker_buy_base_vol",
+                        "taker_buy_quote_vol",
+                        "ignore",
+                    ],
+                )
+                .drop("ignore", axis=1)
+                .rename(columns={index: "timestamp"})
             )
-            .drop("ignore", axis=1)
-            .rename(columns={index: "timestamp"})
-        )
 
-        df.index = pd.to_datetime(df.timestamp, unit="ms")
-        df.drop("timestamp", axis=1, inplace=True)
-        df = df[["open", "high", "low", "close", "volume"]]
-        logger.info(f"Fetched bars for '{ticker}'")
-        return df
+            df.index = pd.to_datetime(df.timestamp, unit="ms")
+            df.drop("timestamp", axis=1, inplace=True)
+            df = df[["open", "high", "low", "close", "volume"]]
+            logger.info(
+                f"Fetched {df.shape[0]} bars for '{ticker}' from {start} to {end}"
+            )
+            return df
+        except Exception as e:
+            logger.warning(
+                f"Couldn't get bars for {ticker} from {start} to {end} with freq {interval} ({e})"
+            )
+            return pd.DataFrame()
 
 
 if __name__ == "__main__":

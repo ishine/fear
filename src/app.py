@@ -1,22 +1,24 @@
 import logging, os
 
 from datetime import datetime, timedelta
+from cycle import Cycler
 
 from channels.alpaca import Alpaca, TimeFrame
 from channels.binanceus import BinanceUS
 from dnn import FEDNN
 from random import shuffle
 
-# logging to file
+# logging
+
 LOGPATH = "logs"
 
 if not os.path.exists(LOGPATH):
     os.mkdir(LOGPATH)
 
+filename = os.path.join(LOGPATH, "log_" + datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
+
 logging.basicConfig(
-    filename=os.path.join(
-        LOGPATH, "log_" + datetime.now().strftime("%m-%d-%Y_%H-%M-%S")
-    ),
+    # filename,
     format="[%(name)s] %(levelname)s %(asctime)s %(message)s",
     level=logging.INFO,
 )
@@ -26,12 +28,15 @@ logger = logging.getLogger("app")
 if __name__ == "__main__":
     ape = Alpaca()
     bnc = BinanceUS()
-
+    cycler = Cycler()
     symbols = ["iht", "tsla", "aal", "fb", "pg", "aapl", "bdry"]
     # symbols = ["tsla"]
-    # symbols = ["BTCUSD", "ETHUSD"]
+    symbols = ["BTCUSD", "ETHUSD"]
     shuffle(symbols)
     logger.info(f"Testing on {symbols}")
+
+    cycler.cycle(symbols[0])
+
     for symbol in symbols:
         data = ape.get_bars(
             symbol,

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from inspect import CO_GENERATOR
 import logging, os
+from threading import Thread
 from alpaca_trade_api.rest import TimeFrame
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -149,7 +150,9 @@ class FEDNN:  # feature engineering deep neural network
             ### drop na
             df.dropna(inplace=True)
         except Exception as e:
-            logger.warning(f"Unknown error occured while generating features ({e})")
+            logger.warning(
+                f"Unknown error occured while generating features ({e})", exc_info=True
+            )
         return df
 
     def prime_data(self, data: pd.DataFrame, prune: bool = False):
@@ -235,8 +238,7 @@ class FEDNN:  # feature engineering deep neural network
         """
         Get a signal from an already trained model
         """
-        truncated = self.prime_data(data)
-
+        truncated = data.copy()
         predset = self.predict(truncated)
         prediction = predset.iloc[-1].prediction
         if prediction == 1:

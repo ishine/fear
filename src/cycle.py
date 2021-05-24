@@ -1,10 +1,12 @@
+from channels.binanceus import BinanceUS
 from channels.alpaca import Alpaca, TimeFrame
 from dnn import FEDNN
 import threading
 import pandas as pd
 from time import sleep
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import logging, math
+from threading import Thread
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +20,7 @@ class Cycler:
     ) -> None:
         self.fednn = FEDNN()
         self.alpaca = Alpaca(api_key, api_secret, base_url)
+        self.binanceus = BinanceUS()
 
     def trade(
         self, ticker: str, side: str, price: float, qty: int, open_blocker: bool = True
@@ -53,7 +56,7 @@ class Cycler:
             return False
         return False
 
-    def cycle_trades(self, ticker: str, spend_amt: float = 1000):
+    def cycle_trades(self, ticker: str):
         """
         Cycles between predicting and trading
 
@@ -64,16 +67,21 @@ class Cycler:
         spend_amt : int = 1000
             max amount of money to spend
         """
-        # sleep(60 - datetime.now().second)  # sleep til next min starts
+
         while True:
             # get the data
-            data = self.alpaca.get_bars(ticker)
+            data = self.binanceus.get_bars(
+                ticker,
+                start_time=datetime.now() - timedelta(hours=12),
+                end_time=datetime.now(),
+            )
             close = data.close
             price = close[-1]
-            qty = math.floor(spend_amt / price)
+            qty = 1
             signal = self.fednn.get_signal(data)
+            logger.info(signal)
             # act
-            self.trade(ticker, signal, price, qty)
+            # self.trade(ticker, signal, price, qty)
             # sleep til next min start
             sleep(60 - datetime.now().second)
 
@@ -90,16 +98,55 @@ class Cycler:
         """
         # model must have been built first
         interval = 60 * train_interval  # convert to seconds
+
+        # build the model
+        data = self.binanceus.get_bars(
+            ticker,
+            # timeframe=TimeFrame.Minute,
+            start_time=datetime.now() - timedelta(days=14),
+        )
+        self.fednn.build(data)
+
         while True:
-            data = self.alpaca.get_bars(
-                ticker,
-                timeframe=TimeFrame.Minute,
-                start_time=datetime.now() - timedelta(days=14),
-            )
             self.fednn.train(data)
             sleep(interval)
+            data = self.binanceus.get_bars(
+                ticker,
+                # timeframe=TimeFrame.Minute,
+                start_time=datetime.now() - timedelta(days=14),
+            )
 
-    def cycle(ticker: str, spend_amt: float, train_interval: int = 30):
+    def cycle(self, ticker: str, train_interval: int = 30):
         """
         first train then start
+        # build the model
+        data = self.binanceus.get_bars(
+            ticker,
+            # timeframe=TimeFrame.Minute,
+            start_time=datetime.now() - timedelta(days=14),
+        )
+        self.fednn.build(data)
+        self.fednn.train(data)
+
+        self.cycle_trades(ticker)
+
         """
+        logger.info("Starting training thread")
+        training_thread = Thread(
+            target=self.cycle_train,
+            args=(
+                ticker,
+                train_interval,
+            ),
+        )
+        training_thread.start()
+        sleep(60)
+        logger.info("Starting trading thread")
+        trading_thread = Thread(
+            target=self.cycle_trades,
+            args=(ticker,),
+        )
+        trading_thread.start()
+        # join
+        training_thread.join()
+        trading_thread.join()

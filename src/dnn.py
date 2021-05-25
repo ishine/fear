@@ -229,9 +229,8 @@ class FEDNN:  # feature engineering deep neural network
         data["prediction"] = (
             data["prediction"] - data["prediction"].shift(1)
         ) / 2  # add holding as 0
-        data.loc[data.index[0], "prediction"] = 1
+        data.loc[data.index[0], "prediction"] = 0
         data["prediction"] = data["prediction"].astype(int)
-        data["strategy"] = data["prediction"] * data["return"]
         return data
 
     def get_signal(self, data: pd.DataFrame):
@@ -241,12 +240,7 @@ class FEDNN:  # feature engineering deep neural network
         truncated = data.copy()
         predset = self.predict(truncated)
         prediction = predset.iloc[-1].prediction
-        if prediction == 1:
-            return "buy"
-        elif prediction == -1:
-            return "sell"
-        else:
-            return "hold"
+        return prediction
 
     def evaluate(
         self, data: pd.DataFrame, tt_split: int = 0.8, securityname: str = None
@@ -274,16 +268,20 @@ class FEDNN:  # feature engineering deep neural network
         self.train(train)
 
         # predict
-        predictions = self.predict(test)
+        predictions = self.predict(test)[["close", "return", "prediction"]]
+
+        # calcluate returns
+        predictions["strategy"] = predictions["prediction"] * predictions["return"]
 
         # count trades
         num_trades = (predictions["prediction"] != 0).sum()
 
         logger.info(f"Trades made: {num_trades}")
-        # evaluate
 
         # define returns
-        returns = predictions[["return", "strategy"]].cumsum().apply(np.exp)
+        predictions["return"] = predictions["return"].cumsum().apply(np.exp)
+        predictions["strategy"] = predictions["strategy"].cumsum().apply(np.exp)
+        returns = predictions[["return", "strategy"]]  # .cumsum().apply(np.exp)
 
         logger.info(f"Returns [{securityname}]:\n{returns.tail(1)}")
         fig = px.line(
@@ -298,6 +296,7 @@ class FEDNN:  # feature engineering deep neural network
             ),
         )
 
+        # write to csv and stuff
         if securityname:
             if not os.path.exists(CHARTPATH):
                 os.mkdir(CHARTPATH)
@@ -306,14 +305,16 @@ class FEDNN:  # feature engineering deep neural network
 
             if not os.path.exists(path):
                 os.mkdir(path)
-
             dt = datetime.now().strftime("%m-%d-%Y_%H-%M-%S")
 
             imgname = securityname + "_" + dt + ".png"
             htmname = securityname + "_" + dt + ".html"
+            returnname = securityname + "_" + dt + ".csv"
 
             imgpath = os.path.join(path, imgname)
             htmpath = os.path.join(path, htmname)
+            returnpath = os.path.join(path, returnname)
 
             fig.write_image(imgpath)
             fig.write_html(htmpath)
+            predictions.to_csv(returnpath)

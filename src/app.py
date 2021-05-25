@@ -1,7 +1,7 @@
 import logging, os
 
 from datetime import datetime, timedelta
-from cycle import Cycler
+from cycle import BinanceUSCycler
 
 from channels.alpaca import Alpaca, TimeFrame
 from channels.binanceus import BinanceUS
@@ -15,7 +15,9 @@ LOGPATH = "logs"
 if not os.path.exists(LOGPATH):
     os.mkdir(LOGPATH)
 
-filename = os.path.join(LOGPATH, "log_" + datetime.now().strftime("%m-%d-%Y_%H-%M-%S"))
+filename = os.path.join(
+    LOGPATH, "log_" + datetime.now().strftime("%m-%d-%Y_%H-%M-%S") + ".log"
+)
 
 logging.basicConfig(
     # filename,
@@ -25,18 +27,21 @@ logging.basicConfig(
 
 logger = logging.getLogger("app")
 
-if __name__ == "__main__":
-    ape = Alpaca()
-    bnc = BinanceUS()
-    cycler = Cycler()
-    symbols = ["iht", "tsla", "aal", "fb", "pg", "aapl", "bdry"]
-    # symbols = ["tsla"]
+ape = Alpaca()
+bnc = BinanceUS()
+cycler = BinanceUSCycler()
+
+
+def test_bcycler():
     symbols = ["BTCUSD", "ETHUSD"]
     shuffle(symbols)
     logger.info(f"Testing on {symbols}")
 
     cycler.cycle(symbols[0])
 
+
+def test_w_stocks():
+    symbols = ["iht", "tsla", "aal", "fb", "pg", "aapl", "bdry"]
     for symbol in symbols:
         data = ape.get_bars(
             symbol,
@@ -49,3 +54,8 @@ if __name__ == "__main__":
         fednn = FEDNN(epochs=25)
         # evaluate
         fednn.evaluate(data, tt_split=0.8, securityname=symbol)
+
+
+if __name__ == "__main__":
+    test_w_stocks()
+    test_bcycler()

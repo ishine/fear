@@ -28,17 +28,20 @@ class BinanceUSCycler:
     ) -> None:
         self.fednn = FEDNN()
         self.binanceus = BinanceUS(api_key, api_secret)
-        self.track = pd.DataFrame(columns=["price", "prediction"])
+        self.track = pd.DataFrame(columns=["price", "signal", "prediction", "strategy"])
 
-    def _add_track(self, price: float, prediction: int):
+    def _add_track(self, price: float, prediction: int, signal: str):
         self.track = self.track.append(
-            pd.DataFrame({"price": [price], "prediction": [prediction]})
+            pd.DataFrame(
+                {"price": [price], "prediction": [prediction], "signal": signal}
+            )
         )
+        self.track["strategy"] = (
+            self.track["price"] * -self.track["prediction"]
+        ).cumsum()
         self.track.to_csv(TRACKPATH)
 
-    def trade(
-        self, ticker: str, side: str, price: float, qty: int, open_blocker: bool = True
-    ):
+    def trade(self, ticker: str, side: str, price: float, qty: int):
         """Trades if all checks pass"""
         return False
 
@@ -70,10 +73,10 @@ class BinanceUSCycler:
             if prediction == 1:
                 signal = "buy"
             elif prediction == -1:
-                signal = "sell"
+                signal = "short sell"
             else:
                 signal = "hold"
-            self._add_track(price, prediction)
+            self._add_track(price, prediction, signal)
             logger.info(f"{signal} {qty} @ {price:.2f}")
             # act
             # self.trade(ticker, signal, price, qty)
@@ -165,15 +168,13 @@ class AlpacaCycler:
             pd.DataFrame({"price": [price], "prediction": [prediction]})
         )
 
-    def trade(
-        self, ticker: str, side: str, price: float, qty: int, open_blocker: bool = True
-    ):
+    def trade(self, ticker: str, side: str, price: float, qty: int):
         """Trades if all checks pass"""
         buying_power = self.alpaca.get_buying_power()
         num_shares = self.alpaca.get_shares(ticker)
         open_trades = self.alpaca.any_open_orders()
 
-        if (not open_trades) or open_blocker:
+        try:
             if side == "buy":
                 if buying_power >= price * qty:
                     self.alpaca.submit_limit_order(
@@ -184,19 +185,15 @@ class AlpacaCycler:
                     logger.warning(
                         f"Not enough balance to buy ({buying_power} < {price*qty})"
                     )
-            elif side == "sell":
-                if num_shares >= qty:
-                    self.alpaca.submit_limit_order(
-                        ticker=ticker, side=side, price=price, qty=qty
-                    )
-                    return True
-                else:
-                    logger.warning(f"Not enough shares to sell ({num_shares} < {qty})")
+            elif side == "sell" or side == "short sell":
+                self.alpaca.submit_limit_order(
+                    ticker=ticker, side=side, price=price, qty=qty
+                )
+                return True
             elif side == "hold":  # do nothing
                 return True
-        else:
-            logger.warning("Open trades... not trading")
-            return False
+        except Exception as e:
+            logger.warning(f"Couldn't place order ({e})")
         return False
 
     def cycle_trades(self, ticker: str):

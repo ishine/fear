@@ -23,7 +23,7 @@ from keras.layers import Dense
 from keras.optimizers import Adam, RMSprop
 from keras.utils.vis_utils import plot_model
 from sklearn.model_selection import train_test_split
-import plotly.express as px
+import plotly.express as px, plotly.graph_objects as go
 
 
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -141,12 +141,7 @@ class FEDNN:  # feature engineering deep neural network
             df["volatility"] = df["return"].rolling(20).std().shift(1)
             df["distance"] = (df["close"] - df["close"].rolling(50).mean()).shift(1)
             # print(df.columns)
-            self._add_columns(
-                "momentum",
-                "volatility",
-                "distance",
-                "14 period RSI",
-            )
+            self._add_columns("momentum", "volatility", "distance", "14 period RSI")
             ### drop na
             df.dropna(inplace=True)
         except Exception as e:
@@ -220,16 +215,19 @@ class FEDNN:  # feature engineering deep neural network
         )
         self.model.evaluate(data_normalized[self.cols], data["direction"])
 
-    def predict(self, data: pd.DataFrame):
-        """Predict"""
+    def predict(self, data: pd.DataFrame, strict_hold=False):
+        """Predict
+        Strict hold = introduce hold signals (0) as well, not just 1 and -1
+        """
         data = self.prime_data(data)
         data_normalized = self.normalize(data)
         pred = np.where(self.model.predict(data_normalized[self.cols]) > 0.5, 1, 0)
         data["prediction"] = np.where(pred > 0, 1, -1)
-        data["prediction"] = (
-            data["prediction"] - data["prediction"].shift(1)
-        ) / 2  # add holding as 0
-        data.loc[data.index[0], "prediction"] = 0
+        if strict_hold:
+            data["prediction"] = (
+                data["prediction"] - data["prediction"].shift(1)
+            ) / 2  # add holding as 0
+            data.loc[data.index[0], "prediction"] = 0
         data["prediction"] = data["prediction"].astype(int)
         return data
 
@@ -239,6 +237,7 @@ class FEDNN:  # feature engineering deep neural network
         """
         truncated = data.copy()
         predset = self.predict(truncated)
+        # 1 is buy and -1 is short sell
         prediction = predset.iloc[-1].prediction
         return prediction
 
@@ -284,17 +283,50 @@ class FEDNN:  # feature engineering deep neural network
         returns = predictions[["return", "strategy"]]  # .cumsum().apply(np.exp)
 
         logger.info(f"Returns [{securityname}]:\n{returns.tail(1)}")
-        fig = px.line(
-            returns, title="Strategy vs buy and hold returns", width=1280, height=720
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=returns.index,
+                y=returns["return"],
+                name="Buy & Hold",
+                mode="lines+markers",
+            ),
         )
+        fig.add_trace(
+            go.Scatter(
+                x=returns.index,
+                y=returns["strategy"],
+                name="FEAR Strategy",
+                mode="lines+markers",
+            ),
+        )
+        fig.add_annotation(
+            x=returns.index[-1],
+            y=returns["return"][-1],
+            text=f"{returns['return'][-1]:.3f}%",
+            showarrow=False,
+            yshift=20,
+        )
+        fig.add_annotation(
+            x=returns.index[-1],
+            y=returns["strategy"][-1],
+            text=f"{returns['strategy'][-1]:.3f}%",
+            showarrow=False,
+            yshift=20,
+        )
+
         fig.update_layout(
+            width=1600,
+            height=900,
             xaxis=dict(
                 title_text="Date",
             ),
             yaxis=dict(
-                title_text="Return",
+                title_text="Return (%)",
             ),
+            title=f"FEAR Strategy vs Buy & Hold returns from {predictions.index[0]} to {predictions.index[-1]}",
         )
+        fig.update_yaxes(nticks=20)
 
         # write to csv and stuff
         if securityname:
@@ -316,5 +348,8 @@ class FEDNN:  # feature engineering deep neural network
             returnpath = os.path.join(path, returnname)
 
             fig.write_image(imgpath)
+            fig.update_layout(  # big for html
+                autosize=True,
+            )
             fig.write_html(htmpath)
             predictions.to_csv(returnpath)

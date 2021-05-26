@@ -41,19 +41,38 @@ def test_bcycler():
 
 
 def test_w_stocks():
-    symbols = ["iht", "tsla", "aal", "fb", "pg", "aapl", "bdry"]
+    symbols = [
+        "iht",
+        "tsla",
+        "aal",
+        "fb",
+        "aapl",
+        "bdry",
+        "spce",
+        "ocft",
+        "gme",
+        "amc",
+        "snap",
+        "tal",
+        "tuya",
+        "cog",
+    ]
+    shuffle(symbols)
     for symbol in symbols:
-        data = ape.get_bars(
-            symbol,
-            timeframe=TimeFrame.Minute,
-            start_time=datetime.now() - timedelta(days=14),
-            end_time=datetime.now() - timedelta(days=3),
-        )
+        try:
+            data = ape.get_bars(
+                symbol,
+                timeframe=TimeFrame.Minute,
+                start_time=datetime.now() - timedelta(days=7),
+                end_time=datetime.now(),
+            )
 
-        # create fednn
-        fednn = FEDNN(epochs=25)
-        # evaluate
-        fednn.evaluate(data, tt_split=0.8, securityname=symbol)
+            # create fednn
+            fednn = FEDNN(epochs=25)
+            # evaluate
+            fednn.evaluate(data, tt_split=0.8, securityname=symbol)
+        except Exception as e:
+            logging.warning(f"Couldn't do {symbol} ({e})")
 
 
 if __name__ == "__main__":

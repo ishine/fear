@@ -32,37 +32,14 @@ bnc = BinanceUS()
 cycler = BinanceUSCycler()
 
 
-def test_bcycler(
-    symbols=[
-        "BTCUSD",
-        "ETHUSD",
-        "ADAUSD",
-    ]
-):
+def test_bcycler(symbols):
     shuffle(symbols)
     logger.info(f"Testing on {symbols}")
 
     cycler.cycle(symbols[0])
 
 
-def test_w_stocks(
-    symbols=[
-        "iht",
-        "tsla",
-        "aal",
-        "fb",
-        "aapl",
-        "bdry",
-        "spce",
-        "ocft",
-        "gme",
-        "amc",
-        "snap",
-        "tal",
-        "tuya",
-        "cog",
-    ]
-):
+def test_w_stocks(symbols):
     shuffle(symbols)
     for symbol in symbols:
         try:
@@ -81,13 +58,7 @@ def test_w_stocks(
             logging.warning(f"Couldn't do {symbol} ({e})")
 
 
-def test_w_crypto(
-    symbols=[
-        "BTCUSD",
-        "ETHUSD",
-        "ADAUSD",
-    ]
-):
+def test_w_crypto(symbols):
     shuffle(symbols)
     for symbol in symbols:
         try:
@@ -106,6 +77,33 @@ def test_w_crypto(
 
 
 if __name__ == "__main__":
-    test_w_stocks()
-    test_w_crypto()
-    test_bcycler()
+    cryptosymbols = [
+        "BTCUSD",
+        "ETHUSD",
+        "ADAUSD",
+        "MATIC",
+        "DOGE",
+        "MANA",
+        "ETC",
+        "LTC",
+    ]
+    stocksymbols = [
+        "iht",
+        "tsla",
+        "aal",
+        "fb",
+        "aapl",
+        "bdry",
+        "spce",
+        "ocft",
+        "gme",
+        "amc",
+        "snap",
+        "tal",
+        "tuya",
+        "cog",
+    ]
+    test_bcycler(cryptosymbols)
+
+    test_w_stocks(stocksymbols)
+    test_w_crypto(cryptosymbols)

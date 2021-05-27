@@ -30,7 +30,9 @@ class BinanceUSCycler:
     ) -> None:
         self.fednn = FEDNN()
         self.binanceus = BinanceUS(api_key, api_secret)
-        self.track = pd.DataFrame(columns=["price", "signal", "prediction", "strategy"])
+        self.track = pd.DataFrame(
+            columns=["price", "return", "signal", "prediction", "strategy"]
+        )
 
     def _add_track(self, price: float, prediction: int, signal: str):
         self.track = self.track.append(
@@ -38,9 +40,12 @@ class BinanceUSCycler:
                 {"price": [price], "prediction": [prediction], "signal": signal}
             )
         )
+        self.track["return"] = np.log(
+            self.track["price"] / self.track["price"].shift(1)
+        )
         self.track["strategy"] = (
-            self.track["price"] * -self.track["prediction"]
-        ).cumsum()
+            (self.track["return"] * self.track["prediction"]).cumsum().apply(np.exp)
+        )
         self.track.to_csv(TRACKPATH)
 
     def trade(self, ticker: str, side: str, price: float, qty: int):

@@ -144,9 +144,7 @@ class FEDNN:  # feature engineering deep neural network
             df["volatility"] = df["return"].rolling(20).std().shift(1)
             df["distance"] = (df["close"] - df["close"].rolling(50).mean()).shift(1)
             # print(df.columns)
-            self._add_columns(
-                "momentum", "volatility", "distance", "14 period RSI", "volume"
-            )
+            self._add_columns("momentum", "volatility", "distance", "14 period RSI")
             ### drop na
             df.dropna(inplace=True)
         except Exception as e:

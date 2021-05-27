@@ -32,16 +32,21 @@ bnc = BinanceUS()
 cycler = BinanceUSCycler()
 
 
-def test_bcycler():
-    symbols = ["BTCUSD", "ETHUSD"]
+def test_bcycler(
+    symbols=[
+        "BTCUSD",
+        "ETHUSD",
+        "ADAUSD",
+    ]
+):
     shuffle(symbols)
     logger.info(f"Testing on {symbols}")
 
     cycler.cycle(symbols[0])
 
 
-def test_w_stocks():
-    symbols = [
+def test_w_stocks(
+    symbols=[
         "iht",
         "tsla",
         "aal",
@@ -57,13 +62,38 @@ def test_w_stocks():
         "tuya",
         "cog",
     ]
+):
     shuffle(symbols)
     for symbol in symbols:
         try:
             data = ape.get_bars(
                 symbol,
                 timeframe=TimeFrame.Minute,
-                start_time=datetime.now() - timedelta(days=7),
+                start_time=datetime.now() - timedelta(days=10),
+                end_time=datetime.now(),
+            )
+
+            # create fednn
+            fednn = FEDNN(epochs=25)
+            # evaluate
+            fednn.evaluate(data, tt_split=0.89, securityname=symbol)
+        except Exception as e:
+            logging.warning(f"Couldn't do {symbol} ({e})")
+
+
+def test_w_crypto(
+    symbols=[
+        "BTCUSD",
+        "ETHUSD",
+        "ADAUSD",
+    ]
+):
+    shuffle(symbols)
+    for symbol in symbols:
+        try:
+            data = bnc.get_bars(
+                symbol,
+                start_time=datetime.now() - timedelta(days=10),
                 end_time=datetime.now(),
             )
 
@@ -77,4 +107,5 @@ def test_w_stocks():
 
 if __name__ == "__main__":
     test_w_stocks()
+    test_w_crypto()
     test_bcycler()

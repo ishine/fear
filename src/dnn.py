@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 from inspect import CO_GENERATOR
 import logging, os
+import re
 from threading import Thread
 from alpaca_trade_api.rest import TimeFrame
+from numpy.core.numeric import NaN
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 # just a test right now
@@ -24,6 +26,7 @@ from keras.optimizers import Adam, RMSprop
 from keras.utils.vis_utils import plot_model
 from sklearn.model_selection import train_test_split
 import plotly.express as px, plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -141,7 +144,9 @@ class FEDNN:  # feature engineering deep neural network
             df["volatility"] = df["return"].rolling(20).std().shift(1)
             df["distance"] = (df["close"] - df["close"].rolling(50).mean()).shift(1)
             # print(df.columns)
-            self._add_columns("momentum", "volatility", "distance", "14 period RSI")
+            self._add_columns(
+                "momentum", "volatility", "distance", "14 period RSI", "volume"
+            )
             ### drop na
             df.dropna(inplace=True)
         except Exception as e:
@@ -237,7 +242,7 @@ class FEDNN:  # feature engineering deep neural network
         """
         truncated = data.copy()
         predset = self.predict(truncated)
-        # 1 is buy and -1 is short sell
+
         prediction = predset.iloc[-1].prediction
         return prediction
 
@@ -283,50 +288,8 @@ class FEDNN:  # feature engineering deep neural network
         returns = predictions[["return", "strategy"]]  # .cumsum().apply(np.exp)
 
         logger.info(f"Returns [{securityname}]:\n{returns.tail(1)}")
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(
-                x=returns.index,
-                y=returns["return"],
-                name="Buy & Hold",
-                mode="lines+markers",
-            ),
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=returns.index,
-                y=returns["strategy"],
-                name="FEAR Strategy",
-                mode="lines+markers",
-            ),
-        )
-        fig.add_annotation(
-            x=returns.index[-1],
-            y=returns["return"][-1],
-            text=f"{returns['return'][-1]:.3f}%",
-            showarrow=False,
-            yshift=20,
-        )
-        fig.add_annotation(
-            x=returns.index[-1],
-            y=returns["strategy"][-1],
-            text=f"{returns['strategy'][-1]:.3f}%",
-            showarrow=False,
-            yshift=20,
-        )
 
-        fig.update_layout(
-            width=1600,
-            height=900,
-            xaxis=dict(
-                title_text="Date",
-            ),
-            yaxis=dict(
-                title_text="Return (%)",
-            ),
-            title=f"FEAR Strategy vs Buy & Hold returns from {predictions.index[0]} to {predictions.index[-1]}",
-        )
-        fig.update_yaxes(nticks=20)
+        fig = self.generate_plot(predictions, securityname)
 
         # write to csv and stuff
         if securityname:
@@ -348,8 +311,201 @@ class FEDNN:  # feature engineering deep neural network
             returnpath = os.path.join(path, returnname)
 
             fig.write_image(imgpath)
-            fig.update_layout(  # big for html
-                autosize=True,
-            )
             fig.write_html(htmpath)
             predictions.to_csv(returnpath)
+
+    def generate_plot(self, returns: pd.DataFrame, securityname: str = ""):
+        """Generate a plot from the returns dataframe with columns ['return', 'strategy']"""
+        markersize = 8
+
+        ### make signal marks
+
+        returns["buys"] = (
+            np.where(returns["prediction"] == -1, 1, NaN) * returns["close"]
+        )
+        returns["sells"] = (
+            np.where(returns["prediction"] == 1, 1, NaN) * returns["close"]
+        )
+
+        fig = make_subplots(
+            rows=2,
+            cols=1,
+            subplot_titles=(
+                f"{securityname.upper()} Returns",
+                f"{securityname.upper()} Close Price",
+            ),
+            vertical_spacing=0.08,
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=returns.index,
+                y=returns["strategy"],
+                name="FEAR Strategy",
+            ),
+            row=1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=returns.index,
+                y=returns["return"],
+                name="Buy & Hold",
+            ),
+            row=1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=returns.index,
+                y=returns["close"],
+                name=f"{securityname.upper()+' '}Close Price",
+            ),
+            row=2,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=returns.index,
+                y=returns["buys"],
+                name="Buy Signals",
+                marker=dict(
+                    color="Green",
+                    size=markersize,
+                ),
+                mode="markers",
+                marker_symbol="triangle-up",
+            ),
+            row=2,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=returns.index,
+                y=returns["sells"],
+                name="Sell Signals",
+                marker=dict(
+                    color="Red",
+                    size=markersize,
+                ),
+                mode="markers",
+                marker_symbol="triangle-down",
+            ),
+            row=2,
+            col=1,
+        )
+        fig.add_annotation(
+            x=returns.index[-1],
+            y=returns["return"][-1],
+            text=f"{returns['return'][-1]:.3f}%",
+            showarrow=True,
+            ax=20,
+            ay=-30,
+            bordercolor="#c7c7c7",
+            borderwidth=2,
+            borderpad=4,
+            bgcolor="#2e2e2e",
+            opacity=0.8,
+            font=dict(color="#ffffff"),
+            align="center",
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=2,
+            arrowcolor="#636363",
+            row=1,
+            col=1,
+        )
+        fig.add_annotation(
+            x=returns.index[-1],
+            y=returns["strategy"][-1],
+            text=f"{returns['strategy'][-1]:.3f}%",
+            showarrow=True,
+            ax=20,
+            ay=30,
+            bordercolor="#c7c7c7",
+            borderwidth=2,
+            borderpad=4,
+            bgcolor="#2e2e2e",
+            opacity=0.8,
+            font=dict(color="#ffffff"),
+            align="center",
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=2,
+            arrowcolor="#636363",
+            row=1,
+            col=1,
+        )
+        fig.add_annotation(
+            x=returns.index[0],
+            y=returns["strategy"][0],
+            text="1.000%",
+            showarrow=True,
+            ax=20,
+            ay=30,
+            bordercolor="#c7c7c7",
+            borderwidth=2,
+            borderpad=4,
+            bgcolor="#2e2e2e",
+            opacity=0.8,
+            font=dict(color="#ffffff"),
+            align="center",
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=2,
+            arrowcolor="#636363",
+            row=1,
+            col=1,
+        )
+        fig.add_annotation(
+            x=returns.index[0],
+            y=returns["close"][0],
+            text=f"${returns['close'][0]:.2f}",
+            showarrow=True,
+            ax=20,
+            ay=30,
+            bordercolor="#c7c7c7",
+            borderwidth=2,
+            borderpad=4,
+            bgcolor="#2e2e2e",
+            opacity=0.8,
+            font=dict(color="#ffffff"),
+            align="center",
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=2,
+            arrowcolor="#636363",
+            row=2,
+            col=1,
+        )
+        fig.add_annotation(
+            x=returns.index[-1],
+            y=returns["close"][-1],
+            text=f"${returns['close'][-1]:.2f}",
+            showarrow=True,
+            ax=20,
+            ay=-30,
+            bordercolor="#c7c7c7",
+            borderwidth=2,
+            borderpad=4,
+            bgcolor="#2e2e2e",
+            opacity=0.8,
+            font=dict(color="#ffffff"),
+            align="center",
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=2,
+            arrowcolor="#636363",
+            row=2,
+            col=1,
+        )
+        # plot scatter
+        fig.update_layout(
+            width=1920,
+            height=1080,
+            title=f"{securityname.upper()} FEAR Strategy vs Buy & Hold returns from {returns.index[0]} to {returns.index[-1]}",
+        )
+        fig.update_xaxes(nticks=30, title_text="Date", row=2, col=1)
+        fig.update_yaxes(nticks=20, title_text="Return (%)", row=1, col=1)
+        fig.update_yaxes(nticks=20, title_text="Price ($)", row=2, col=1)
+        return fig

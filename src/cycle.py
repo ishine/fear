@@ -21,6 +21,8 @@ TRACKPATH = os.path.join(
 
 
 class BinanceUSCycler:
+    """We will NOT trade crypto, this is just for testing algorithm"""
+
     def __init__(
         self,
         api_key: str = open("keys/binanceus-public").read().strip(),
@@ -70,10 +72,10 @@ class BinanceUSCycler:
 
             prediction = self.fednn.get_signal(data)
 
-            if prediction == 1:
+            if prediction == -1:
                 signal = "buy"
-            elif prediction == -1:
-                signal = "short sell"
+            elif prediction == 1:
+                signal = "sell"
             else:
                 signal = "hold"
             self._add_track(price, prediction, signal)
@@ -185,7 +187,7 @@ class AlpacaCycler:
                     logger.warning(
                         f"Not enough balance to buy ({buying_power} < {price*qty})"
                     )
-            elif side == "sell" or side == "short sell":
+            elif side == "sell":
                 self.alpaca.submit_limit_order(
                     ticker=ticker, side=side, price=price, qty=qty
                 )
@@ -193,7 +195,9 @@ class AlpacaCycler:
             elif side == "hold":  # do nothing
                 return True
         except Exception as e:
-            logger.warning(f"Couldn't place order ({e})")
+            logger.warning(
+                f"Couldn't place order ({e}). Is shorting enabled on your account?"
+            )
         return False
 
     def cycle_trades(self, ticker: str):

@@ -234,18 +234,22 @@ class FEDNN:  # feature engineering deep neural network
         data["prediction"] = data["prediction"].astype(int)
         return data
 
-    def get_signal(self, data: pd.DataFrame):
+    def get_signal(self, data: pd.DataFrame, strict_hold=False):
         """
         Get a signal from an already trained model
         """
         truncated = data.copy()
-        predset = self.predict(truncated)
+        predset = self.predict(truncated, strict_hold=strict_hold)
 
         prediction = predset.iloc[-1].prediction
         return prediction
 
     def evaluate(
-        self, data: pd.DataFrame, tt_split: int = 0.8, securityname: str = None
+        self,
+        data: pd.DataFrame,
+        tt_split: int = 0.8,
+        strict_hold=False,
+        securityname: str = None,
     ):
         """Vectorize evaluate - split data into train and test, build, and evaluate"""
         # prime data happens inside each function
@@ -270,7 +274,9 @@ class FEDNN:  # feature engineering deep neural network
         self.train(train)
 
         # predict
-        predictions = self.predict(test)[["close", "return", "prediction"]]
+        predictions = self.predict(test, strict_hold=strict_hold)[
+            ["close", "return", "prediction"]
+        ]
 
         # calcluate returns
         predictions["strategy"] = predictions["prediction"] * predictions["return"]
@@ -308,7 +314,7 @@ class FEDNN:  # feature engineering deep neural network
             htmpath = os.path.join(path, htmname)
             returnpath = os.path.join(path, returnname)
 
-            fig.write_image(imgpath)
+            fig.write_image(imgpath, scale=2)
             fig.write_html(htmpath)
             predictions.to_csv(returnpath)
 
@@ -325,6 +331,13 @@ class FEDNN:  # feature engineering deep neural network
             np.where(returns["prediction"] == 1, 1, NaN) * returns["close"]
         )
 
+        buy_count = returns["buys"].count()
+        sell_count = returns["sells"].count()
+        trade_count = buy_count + sell_count
+
+        returns["human-return"] = returns["return"] * 100 - 100
+        returns["human-strategy"] = returns["strategy"] * 100 - 100
+
         fig = make_subplots(
             rows=2,
             cols=1,
@@ -338,7 +351,7 @@ class FEDNN:  # feature engineering deep neural network
         fig.add_trace(
             go.Scatter(
                 x=returns.index,
-                y=returns["strategy"],
+                y=returns["human-strategy"],
                 name="FEAR Strategy",
             ),
             row=1,
@@ -347,7 +360,7 @@ class FEDNN:  # feature engineering deep neural network
         fig.add_trace(
             go.Scatter(
                 x=returns.index,
-                y=returns["return"],
+                y=returns["human-return"],
                 name="Buy & Hold",
             ),
             row=1,
@@ -357,7 +370,8 @@ class FEDNN:  # feature engineering deep neural network
             go.Scatter(
                 x=returns.index,
                 y=returns["close"],
-                name=f"{securityname.upper()+' '}Close Price",
+                name=f"{securityname.upper()} Close Price",
+                line=dict(color="#4e5cdc"),
             ),
             row=2,
             col=1,
@@ -368,7 +382,7 @@ class FEDNN:  # feature engineering deep neural network
                 y=returns["buys"],
                 name="Buy Signals",
                 marker=dict(
-                    color="Green",
+                    color="#5bcf5b",
                     size=markersize,
                 ),
                 mode="markers",
@@ -394,8 +408,8 @@ class FEDNN:  # feature engineering deep neural network
         )
         fig.add_annotation(
             x=returns.index[-1],
-            y=returns["return"][-1],
-            text=f"{returns['return'][-1]:.3f}%",
+            y=returns["human-return"][-1],
+            text=f"{returns['human-return'][-1]:.3f}%",
             showarrow=True,
             ax=20,
             ay=-30,
@@ -415,8 +429,8 @@ class FEDNN:  # feature engineering deep neural network
         )
         fig.add_annotation(
             x=returns.index[-1],
-            y=returns["strategy"][-1],
-            text=f"{returns['strategy'][-1]:.3f}%",
+            y=returns["human-strategy"][-1],
+            text=f"{returns['human-strategy'][-1]:.3f}%",
             showarrow=True,
             ax=20,
             ay=30,
@@ -436,8 +450,8 @@ class FEDNN:  # feature engineering deep neural network
         )
         fig.add_annotation(
             x=returns.index[0],
-            y=returns["strategy"][0],
-            text="1.000%",
+            y=returns["human-strategy"][0],
+            text=f"{returns['human-strategy'][0]:.3f}%",
             showarrow=True,
             ax=20,
             ay=30,
@@ -497,11 +511,32 @@ class FEDNN:  # feature engineering deep neural network
             row=2,
             col=1,
         )
+
+        # add counts
+        fig.add_annotation(
+            xref="x domain",
+            yref="y domain",
+            x=0.02,
+            y=0.97,
+            text=f"# of buys: {buy_count}<br># of sells: {sell_count}",
+            showarrow=False,
+            bordercolor="#c7c7c7",
+            borderwidth=2,
+            borderpad=4,
+            bgcolor="#2e2e2e",
+            opacity=0.8,
+            font=dict(color="#ffffff"),
+            align="center",
+            row=1,
+            col=1,
+        )
+
         # plot scatter
         fig.update_layout(
             width=1920,
             height=1080,
             title=f"{securityname.upper()} FEAR Strategy vs Buy & Hold returns from {returns.index[0]} to {returns.index[-1]}",
+            template="plotly_dark",
         )
         fig.update_xaxes(nticks=30, title_text="Date", row=2, col=1)
         fig.update_yaxes(nticks=20, title_text="Return (%)", row=1, col=1)

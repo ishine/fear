@@ -32,14 +32,14 @@ bnc = BinanceUS()
 cycler = BinanceUSCycler()
 
 
-def test_bcycler(symbols):
+def test_bcycler(symbols, strict_hold=False):
     shuffle(symbols)
     logger.info(f"Testing on {symbols}")
 
-    cycler.cycle(symbols[0])
+    cycler.cycle(symbols[0], strict_hold=strict_hold)
 
 
-def test_w_stocks(symbols):
+def test_w_stocks(symbols, strict_hold=False):
     shuffle(symbols)
     for symbol in symbols:
         try:
@@ -53,12 +53,14 @@ def test_w_stocks(symbols):
             # create fednn
             fednn = FEDNN(epochs=25)
             # evaluate
-            fednn.evaluate(data, tt_split=0.89, securityname=symbol)
+            fednn.evaluate(
+                data, tt_split=0.89, securityname=symbol, strict_hold=strict_hold
+            )
         except Exception as e:
             logging.warning(f"Couldn't do {symbol} ({e})")
 
 
-def test_w_crypto(symbols):
+def test_w_crypto(symbols, strict_hold=False):
     shuffle(symbols)
     for symbol in symbols:
         try:
@@ -71,7 +73,9 @@ def test_w_crypto(symbols):
             # create fednn
             fednn = FEDNN(epochs=25)
             # evaluate
-            fednn.evaluate(data, tt_split=0.8, securityname=symbol)
+            fednn.evaluate(
+                data, tt_split=0.8, securityname=symbol, strict_hold=strict_hold
+            )
         except Exception as e:
             logging.warning(f"Couldn't do {symbol} ({e})")
 
@@ -81,11 +85,6 @@ if __name__ == "__main__":
         "BTCUSD",
         "ETHUSD",
         "ADAUSD",
-        "MATIC",
-        "DOGE",
-        "MANA",
-        "ETC",
-        "LTC",
     ]
     stocksymbols = [
         "iht",
@@ -103,7 +102,7 @@ if __name__ == "__main__":
         "tuya",
         "cog",
     ]
-    test_bcycler(cryptosymbols)
+    test_w_stocks(stocksymbols, strict_hold=False)
+    test_w_crypto(cryptosymbols, strict_hold=True)
 
-    test_w_stocks(stocksymbols)
-    test_w_crypto(cryptosymbols)
+    test_bcycler(cryptosymbols, strict_hold=False)

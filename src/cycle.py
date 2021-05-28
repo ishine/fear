@@ -52,7 +52,7 @@ class BinanceUSCycler:
         """Trades if all checks pass"""
         return False
 
-    def cycle_trades(self, ticker: str):
+    def cycle_trades(self, ticker: str, strict_hold=False):
         """
         Cycles between predicting and trading
 
@@ -75,7 +75,7 @@ class BinanceUSCycler:
             price = close[-1]
             qty = 1
 
-            prediction = self.fednn.get_signal(data)
+            prediction = self.fednn.get_signal(data, strict_hold=strict_hold)
 
             if prediction == -1:
                 signal = "buy"
@@ -123,7 +123,7 @@ class BinanceUSCycler:
                 start_time=datetime.now() - timedelta(days=14),
             )
 
-    def cycle(self, ticker: str, train_interval: int = 30):
+    def cycle(self, ticker: str, train_interval: int = 30, strict_hold=False):
         """
         first train then start
         # build the model
@@ -151,7 +151,7 @@ class BinanceUSCycler:
         logger.info("Starting trading thread")
         trading_thread = Thread(
             target=self.cycle_trades,
-            args=(ticker,),
+            args=(ticker, strict_hold),
         )
         trading_thread.start()
         # join

@@ -27,82 +27,14 @@ logging.basicConfig(
 
 logger = logging.getLogger("app")
 
-ape = Alpaca()
-bnc = BinanceUS()
 cycler = BinanceUSCycler()
 
 
-def test_bcycler(symbols, strict_hold=False):
-    shuffle(symbols)
-    logger.info(f"Testing on {symbols}")
+def test_bcycler(symbol, strict_hold=False):
+    logger.info(f"Testing on {symbol}")
 
-    cycler.cycle(symbols[0], strict_hold=strict_hold)
-
-
-def test_w_stocks(symbols, strict_hold=False):
-    shuffle(symbols)
-    for symbol in symbols:
-        try:
-            data = ape.get_bars(
-                symbol,
-                timeframe=TimeFrame.Minute,
-                start_time=datetime.now() - timedelta(days=10),
-                end_time=datetime.now(),
-            )
-
-            # create fednn
-            fednn = FEDNN(epochs=25)
-            # evaluate
-            fednn.evaluate(
-                data, tt_split=0.89, securityname=symbol, strict_hold=strict_hold
-            )
-        except Exception as e:
-            logging.warning(f"Couldn't do {symbol} ({e})")
-
-
-def test_w_crypto(symbols, strict_hold=False):
-    shuffle(symbols)
-    for symbol in symbols:
-        try:
-            data = bnc.get_bars(
-                symbol,
-                start_time=datetime.now() - timedelta(days=10),
-                end_time=datetime.now(),
-            )
-
-            # create fednn
-            fednn = FEDNN(epochs=25)
-            # evaluate
-            fednn.evaluate(
-                data, tt_split=0.8, securityname=symbol, strict_hold=strict_hold
-            )
-        except Exception as e:
-            logging.warning(f"Couldn't do {symbol} ({e})")
+    cycler.cycle(symbol, strict_hold=strict_hold)
 
 
 if __name__ == "__main__":
-    cryptosymbols = [
-        "BTCUSD",
-        "ETHUSD",
-        "ADAUSD",
-    ]
-    stocksymbols = [
-        "iht",
-        "tsla",
-        "aal",
-        "fb",
-        "aapl",
-        "bdry",
-        "spce",
-        "ocft",
-        "gme",
-        "amc",
-        "snap",
-        "tal",
-        "tuya",
-        "cog",
-    ]
-    test_w_stocks(stocksymbols, strict_hold=False)
-    test_w_crypto(cryptosymbols, strict_hold=True)
-
-    test_bcycler(cryptosymbols, strict_hold=False)
+    test_bcycler("BTCUSD", strict_hold=False)

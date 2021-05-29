@@ -42,7 +42,7 @@ def test_w_stocks(symbols, strict_hold=False):
             )
 
             # create fednn
-            fednn = FEDNN(epochs=25)
+            fednn = FEDNN(epochs=25, units=64)
             # evaluate
             fednn.evaluate(
                 data, tt_split=0.89, securityname=symbol, strict_hold=strict_hold
@@ -92,6 +92,16 @@ if __name__ == "__main__":
         "tal",
         "tuya",
         "cog",
+        "hpq",
+        "vale",
+        "nio",
+        "tlry",
+        "ge",
+        "f",
+        "bac",
+        "ccl",
+        "itub",
+        "pltr",
     ]
     test_w_stocks(stocksymbols, strict_hold=False)
     test_w_crypto(cryptosymbols, strict_hold=True)

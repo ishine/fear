@@ -42,12 +42,12 @@ CHARTPATH = "chart"
 class FEDNN:  # feature engineering deep neural network
     def __init__(
         self,
-        mv_avgs: list = [5, 10, 20, 30, 50, 100, 200],
         units: int = 32,
         learning_rate: float = 0.0001,
         lags: int = 5,
         cols: list = ["return"],
         epochs: int = 25,
+        mv_avgs: list = [5, 10, 20, 30, 50, 100, 200],
     ) -> None:
         """dfcols is the labels for the dataframe that you recieve"""
         self.mv_avgs = mv_avgs

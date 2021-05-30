@@ -1,33 +1,38 @@
+import logging
+import os
+import re
 from datetime import datetime, timedelta
 from inspect import CO_GENERATOR
-import logging, os
-import re
 from threading import Thread
-from alpaca_trade_api.rest import TimeFrame
+
 from numpy.core.numeric import NaN
 
+from channels.alpaca import Alpaca, TimeFrame
+from channels.binanceus import BinanceUS
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from finta import TA as ta
+
 # just a test right now
 from keras import optimizers
 from keras.engine import training
-from channels.alpaca import Alpaca
-import pandas as pd, numpy as np
-from finta import TA as ta
-from tqdm import trange, tqdm
 from sklearn import preprocessing
-import tensorflow as tf
+from tqdm import tqdm, trange
 
 tf.get_logger().setLevel("ERROR")
 tf.autograph.set_verbosity(1)
 
-from keras.models import Sequential
+import plotly.express as px
+import plotly.graph_objects as go
 from keras.layers import Dense
+from keras.models import Sequential
 from keras.optimizers import Adam, RMSprop
 from keras.utils.vis_utils import plot_model
-from sklearn.model_selection import train_test_split
-import plotly.express as px, plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
+from sklearn.model_selection import train_test_split
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -353,6 +358,8 @@ class FEDNN:  # feature engineering deep neural network
     def generate_plot(self, predictions: pd.DataFrame, securityname: str = ""):
         """Generate a plot from the returns dataframe with columns ['return', 'strategy']"""
         markersize = 8
+        xticks = 40
+        yticks = 25
 
         ### make signal marks
 
@@ -563,7 +570,89 @@ class FEDNN:  # feature engineering deep neural network
             title=f"{securityname.upper()} FEAR Strategy vs Buy & Hold predictions from {predictions.index[0]} to {predictions.index[-1]}",
             template="plotly_dark",
         )
-        fig.update_xaxes(nticks=30, title_text="Date", row=2, col=1)
-        fig.update_yaxes(nticks=20, title_text="Return (%)", row=1, col=1)
-        fig.update_yaxes(nticks=20, title_text="Price ($)", row=2, col=1)
+        fig.update_xaxes(nticks=xticks, row=1, col=1)
+        fig.update_xaxes(nticks=xticks, title_text="Date", row=2, col=1)
+        fig.update_yaxes(nticks=yticks, title_text="Return (%)", row=1, col=1)
+        fig.update_yaxes(nticks=yticks, title_text="Price ($)", row=2, col=1)
         return fig
+
+
+ape = Alpaca()
+bnc = BinanceUS()
+
+
+def test_w_stocks(symbols, strict_hold=False):
+    shuffle(symbols)
+    for symbol in symbols:
+        try:
+            data = ape.get_bars(
+                symbol,
+                timeframe=TimeFrame.Minute,
+                start_time=datetime.now() - timedelta(days=10),
+                end_time=datetime.now(),
+            )
+
+            # create fednn
+            fednn = FEDNN(epochs=25, units=64)
+            # evaluate
+            fednn.evaluate(
+                data, tt_split=0.7, securityname=symbol, strict_hold=strict_hold
+            )
+        except Exception as e:
+            logging.warning(f"Couldn't do {symbol} ({e})")
+
+
+def test_w_crypto(symbols, strict_hold=False):
+    shuffle(symbols)
+    for symbol in symbols:
+        try:
+            data = bnc.get_bars(
+                symbol,
+                start_time=datetime.now() - timedelta(days=10),
+                end_time=datetime.now(),
+            )
+
+            # create fednn
+            fednn = FEDNN(epochs=25)
+            # evaluate
+            fednn.evaluate(
+                data, tt_split=0.8, securityname=symbol, strict_hold=strict_hold
+            )
+        except Exception as e:
+            logging.warning(f"Couldn't do {symbol} ({e})")
+
+
+if __name__ == "__main__":
+    cryptosymbols = [
+        "BTCUSD",
+        "ETHUSD",
+        "ADAUSD",
+    ]
+    stocksymbols = [
+        "iht",
+        "tsla",
+        "aal",
+        "fb",
+        "aapl",
+        "bdry",
+        "spce",
+        "ocft",
+        "gme",
+        "amc",
+        "snap",
+        "tal",
+        "tuya",
+        "cog",
+        "hpq",
+        "vale",
+        "nio",
+        "tlry",
+        "ge",
+        "f",
+        "bac",
+        "ccl",
+        "itub",
+        "pltr",
+    ]
+    test_w_stocks(stocksymbols, strict_hold=False)
+    test_w_crypto(cryptosymbols, strict_hold=True)

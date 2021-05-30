@@ -142,3 +142,4 @@ keys/*
 Montecarlo Automated.py
 .DS_Store
 chart/*
+src/sma.py

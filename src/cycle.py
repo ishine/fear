@@ -231,9 +231,9 @@ class AlpacaCycler:
 
             prediction = self.fednn.get_signal(data)
 
-            if prediction == 1:
+            if prediction == -1:
                 signal = "buy"
-            elif prediction == -1:
+            elif prediction == 1:
                 signal = "sell"
             else:
                 signal = "hold"

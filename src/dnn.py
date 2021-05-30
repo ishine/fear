@@ -3,12 +3,14 @@ import os
 import re
 from datetime import datetime, timedelta
 from inspect import CO_GENERATOR
+from random import shuffle
 from threading import Thread
 
 from numpy.core.numeric import NaN
 
 from channels.alpaca import Alpaca, TimeFrame
 from channels.binanceus import BinanceUS
+from channels.screener import Screener
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import numpy as np
@@ -38,6 +40,11 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 os.environ["NUMEXPR_MAX_THREADS"] = "8"
 
+logging.basicConfig(
+    # filename,
+    format="[%(name)s] %(levelname)s %(asctime)s %(message)s",
+    level=logging.INFO,
+)
 logger = logging.getLogger(__name__)
 
 MODELPATH = "models"
@@ -577,11 +584,8 @@ class FEDNN:  # feature engineering deep neural network
         return fig
 
 
-ape = Alpaca()
-bnc = BinanceUS()
-
-
 def test_w_stocks(symbols, strict_hold=False):
+    ape = Alpaca()
     shuffle(symbols)
     for symbol in symbols:
         try:
@@ -603,6 +607,7 @@ def test_w_stocks(symbols, strict_hold=False):
 
 
 def test_w_crypto(symbols, strict_hold=False):
+    bnc = BinanceUS()
     shuffle(symbols)
     for symbol in symbols:
         try:
@@ -623,36 +628,12 @@ def test_w_crypto(symbols, strict_hold=False):
 
 
 if __name__ == "__main__":
+    screener = Screener()
     cryptosymbols = [
         "BTCUSD",
         "ETHUSD",
         "ADAUSD",
     ]
-    stocksymbols = [
-        "iht",
-        "tsla",
-        "aal",
-        "fb",
-        "aapl",
-        "bdry",
-        "spce",
-        "ocft",
-        "gme",
-        "amc",
-        "snap",
-        "tal",
-        "tuya",
-        "cog",
-        "hpq",
-        "vale",
-        "nio",
-        "tlry",
-        "ge",
-        "f",
-        "bac",
-        "ccl",
-        "itub",
-        "pltr",
-    ]
+    stocksymbols = screener.get_active()["symbol"]
     test_w_stocks(stocksymbols, strict_hold=False)
     test_w_crypto(cryptosymbols, strict_hold=True)

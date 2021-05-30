@@ -77,6 +77,7 @@ Coming soon!
 
 [(Back to top)](#table-of-contents)
 
+When designing live implementations, a signal of `-1` is a buy signal, and `1` for sell. 
 
 Coming soon!
 

@@ -1,3 +1,5 @@
+from numpy.core.numeric import NaN
+from mlbase import BaseTrader
 from sys import exc_info
 import numpy as np, pandas as pd
 import logging
@@ -18,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class ADA:
+class ADA(BaseTrader):
     def __init__(
         self,
         window: int = 20,
@@ -33,8 +35,8 @@ class ADA:
         """
         window: analysis window
         """
+        super(ADA, self).__init__(lags=lags)
         self.window = window
-        self.lags = lags
         self.features = features
         self.cols = []  # cols different than features here
         self.estimators = estimators
@@ -42,24 +44,6 @@ class ADA:
         self.max_depth = max_depth
         self.min_samples_leaf = min_samples_leaf
         self.subsample = subsample
-
-    def _create_returns(self, data: pd.DataFrame):
-        """Create the log returns"""
-        data = data.copy()
-        try:
-            data["return"] = np.log(data["close"] / data["close"].shift(1))
-        except Exception as e:
-            logger.warning(f"Unknown error occured while generating returns ({e})")
-        return data
-
-    def _create_direction(self, data: pd.DataFrame):
-        """Create direction from returns"""
-        data = data.copy()
-        try:
-            data["direction"] = np.where(data["return"] > 0, 1, -1)
-        except Exception as e:
-            logger.warning(f"Unknown error occured while generating direction ({e})")
-        return data
 
     def _create_lags(self, data: pd.DataFrame):
         """Create the lags"""
@@ -75,13 +59,6 @@ class ADA:
             logger.warning(f"Unknown error occured while generating lags ({e})")
         return data
 
-    def _append_data(
-        self, maindf: pd.DataFrame, dataarray: list, namesarray: list = None
-    ):
-        if namesarray == None:
-            return maindf.join(pd.DataFrame(dataarray), how="outer")
-        return maindf.join(pd.DataFrame(dataarray, columns=namesarray), how="outer")
-
     def _create_features(self, data: pd.DataFrame):
         """Create the features"""
         data = data.copy()
@@ -93,30 +70,6 @@ class ADA:
         data = self._append_data(data, ta.RSI(data))
         self.features.extend(["vol", "mom", "sma", "min", "max", "14 period RSI"])
         return data
-
-    def prime_data(self, data: pd.DataFrame, prune: bool = False):
-        """Prime the data for the network"""
-        data = data.copy()
-        if prune:
-            data = data[["close"]]
-
-        data = self._create_returns(data)
-        data = self._create_direction(data)
-        data = self._create_features(data)
-        data = self._create_lags(data)
-        self.cols = list(set(self.cols))  # remove duplicates
-        # logger.info("Primed data")
-        return data
-
-    def fit_scaler(self, data: pd.DataFrame):
-        """Fit the min max scaler - MUST BE CALLED BEFORE SCALING"""
-        self.mu, self.std = data.mean(), data.std()
-
-    def normalize(self, data: pd.DataFrame):
-        """Normalize the data and return"""
-        data = data.copy()
-        normalized = (data - self.mu) / self.std
-        return normalized
 
     def build(self, data: pd.DataFrame, summary: bool = False):
         """Compile model"""
@@ -210,9 +163,20 @@ class ADA:
         # define returns
         predictions["return"] = predictions["return"].cumsum().apply(np.exp)
         predictions["strategy"] = predictions["strategy"].cumsum().apply(np.exp)
+
+        predictions["buys"] = (
+            np.where(predictions["prediction"] == -1, 1, NaN) * predictions["close"]
+        )
+        predictions["sells"] = (
+            np.where(predictions["prediction"] == 1, 1, NaN) * predictions["close"]
+        )
+
         returns = predictions[["return", "strategy"]]  # .cumsum().apply(np.exp)
 
         logger.info(f"Returns [{securityname}]:\n{returns.tail(1)}")
+        # write to csv and stuff
+        if securityname:
+            self.save_plot(predictions, securityname)
 
 
 if __name__ == "__main__":

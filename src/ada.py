@@ -94,11 +94,12 @@ class ADA(BaseTrader):
         data = self.prime_data(data)
         logger.info(f"Training model on {data.shape[0]} records")
         data_normalized = self.normalize(data)
-        self.model.fit(data[self.cols], data["direction"])
+        self.model.fit(data_normalized[self.cols], data["direction"])
+
         accuracy = accuracy_score(
-            data["direction"], self.model.predict(data[self.cols])
+            data["direction"], self.model.predict(data_normalized[self.cols])
         )
-        logger.info(f"Accuracy score (in sample) = {accuracy}")
+        logger.info(f"Accuracy score (in sample) = {accuracy:.4f}")
 
     def predict(self, data: pd.DataFrame):
         """Predict
@@ -107,7 +108,8 @@ class ADA(BaseTrader):
         data = data.copy()
         data = self.prime_data(data)
         data_normalized = self.normalize(data)
-        data["prediction"] = self.model.predict(data[self.cols])
+        data["prediction"] = self.model.predict(data_normalized[self.cols])
+        data["prediction"] = np.where(data["prediction"] == 0, -1, 1)
         return data
 
     def get_signal(self, data: pd.DataFrame):

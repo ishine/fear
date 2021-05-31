@@ -1,7 +1,7 @@
 from os import stat
 from re import S, search
 from alpaca_trade_api.rest import *
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from time import sleep
 from abraham3k import Abraham
 import pandas as pd
@@ -34,6 +34,7 @@ class Alpaca:
         timeframe=TimeFrame.Minute,
         start_time=datetime.now() - timedelta(hours=24),
         end_time=datetime.now(),
+        resample: int = 1,
     ):
         """Wrapper for the api to simplify the calls
 
@@ -45,6 +46,8 @@ class Alpaca:
             the timeframe
         start_time : timedelta = datetime.now() - timedelta(hours=24),
         end_time : timedelta = datetime.now()
+        resample : int = 1
+            this slices it every n rows
 
         Returns
         -------
@@ -62,8 +65,10 @@ class Alpaca:
                 adjustment="raw",
             ).df
             logger.info(
-                f"Fetched {df.shape[0]} bars for '{ticker}' from {start} to {end} with freq {timeframe}"
+                f"Fetched {df.shape[0]} bars for '{ticker}' from {start} to {end} with freq {timeframe} and resample {resample}"
             )
+            if resample > 1:
+                df = df.iloc[df.shape[0] % resample - 1 :: resample]
             return df
         except Exception as e:
             logger.warning(
@@ -225,3 +230,10 @@ class Alpaca:
         except Exception as e:
             logging.warning(f"Issue getting buying_power ({e})")
             return 0
+
+
+if __name__ == "__main__":
+    ape = Alpaca()
+    print(
+        ape.get_bars("tsla", start_time=datetime.now() - timedelta(days=10), resample=5)
+    )

@@ -55,9 +55,9 @@ CHARTPATH = "chart"
 class FEDNN(BaseTrader):  # feature engineering deep neural network
     def __init__(
         self,
-        units: int = 32,
+        units: int = 64,
         learning_rate: float = 0.0001,
-        lags: int = 5,
+        lags: int = 7,
         cols: list = ["return"],
         epochs: int = 25,
         mv_avgs: list = [5, 10, 20, 30, 50, 100, 200],
@@ -277,27 +277,22 @@ class FEDNN(BaseTrader):  # feature engineering deep neural network
         if securityname:
             self.save_plot(predictions, securityname)
 
-
-def test_w_stocks(symbols, strict_hold=False):
-    ape = Alpaca()
-    shuffle(symbols)
-    for symbol in symbols:
-        try:
-            data = ape.get_bars(
-                symbol,
-                timeframe=TimeFrame.Minute,
-                start_time=datetime.now() - timedelta(days=10),
-                end_time=datetime.now(),
-            )
-
-            # create fednn
-            fednn = FEDNN(epochs=25, units=64)
-            # evaluate
-            fednn.evaluate(
-                data, tt_split=0.7, securityname=symbol, strict_hold=strict_hold
-            )
-        except Exception as e:
-            logging.warning(f"Couldn't do {symbol} ({e})")
+    def test_w_stocks(self, symbols: list, strict_hold=False):
+        shuffle(symbols)
+        for symbol in symbols:
+            try:
+                data = self.alpaca.get_bars(
+                    symbol,
+                    timeframe=TimeFrame.Minute,
+                    start_time=datetime.now() - timedelta(days=10),
+                    end_time=datetime.now(),
+                )
+                # evaluate
+                self.evaluate(
+                    data, tt_split=0.7, securityname=symbol, strict_hold=strict_hold
+                )
+            except Exception as e:
+                logging.warning(f"Couldn't do {symbol} ({e})")
 
 
 def test_w_crypto(symbols, strict_hold=False):
@@ -329,5 +324,6 @@ if __name__ == "__main__":
         "ADAUSD",
     ]
     stocksymbols = screener.get_active()["symbol"]
-    test_w_stocks(stocksymbols, strict_hold=False)
+    fednn = FEDNN()
+    fednn.test_w_stocks(stocksymbols, strict_hold=False)
     test_w_crypto(cryptosymbols, strict_hold=True)

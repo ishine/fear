@@ -156,7 +156,9 @@ class FEDNN:  # feature engineering deep neural network
             df["volatility"] = df["return"].rolling(20).std().shift(1)
             df["distance"] = (df["close"] - df["close"].rolling(50).mean()).shift(1)
             # print(df.columns)
-            self._add_columns("momentum", "volatility", "distance", "14 period RSI")
+            self._add_columns(
+                "momentum", "volatility", "distance", "14 period RSI", "volume"
+            )
             ### drop na
             df.dropna(inplace=True)
         except Exception as e:
@@ -312,47 +314,20 @@ class FEDNN:  # feature engineering deep neural network
 
         logger.info(f"Returns [{securityname}]:\n{returns.tail(1)}")
 
-        fig = self.generate_plot(predictions, securityname)
-        info = self.generate_text(train, predictions, securityname)
-
         # write to csv and stuff
         if securityname:
-            if not os.path.exists(CHARTPATH):
-                os.mkdir(CHARTPATH)
-
-            path = os.path.join(CHARTPATH, securityname)
-
-            if not os.path.exists(path):
-                os.mkdir(path)
-            dt = datetime.now().strftime("%m-%d-%Y_%H-%M-%S")
-
-            imgname = securityname + "_" + dt + ".png"
-            htmname = securityname + "_" + dt + ".html"
-            returnname = securityname + "_" + dt + ".csv"
-            infoname = securityname + "_" + dt + ".txt"
-
-            imgpath = os.path.join(path, imgname)
-            htmpath = os.path.join(path, htmname)
-            returnpath = os.path.join(path, returnname)
-            infopath = os.path.join(path, infoname)
-
-            fig.write_image(imgpath, scale=2)
-            fig.write_html(htmpath)
-            predictions.to_csv(returnpath)
-            self.write_info(info, infopath)
+            self.save_plot(data)
 
     def write_info(self, text: str, filepath: str):
         """Write a string to a file"""
         with open(filepath, "w+") as f:
             f.write(text)
 
-    def generate_text(
-        self, train: pd.DataFrame, predictions: pd.DataFrame, securityname: str = ""
-    ):
+    def generate_text(self, predictions: pd.DataFrame, securityname: str = ""):
         """Writes the hyper params to file"""
         out_str = f"[{securityname}]\n"
         out_str += f"features={self.cols}\n"
-        out_str += f"train_size={train.shape[0]}\n"
+        # out_str += f"train_size={train.shape[0]}\n"
         out_str += f"test_size={predictions.shape[0]}\n"
         out_str += f"units={self.units}\n"
         out_str += f"epochs={self.epochs}\n"
@@ -361,6 +336,37 @@ class FEDNN:  # feature engineering deep neural network
         out_str += f"return_b_and_h={predictions['return'][-1]}\n"
         out_str += f"return_strategy={predictions['strategy'][-1]}\n"
         return out_str
+
+    def save_plot(self, predictions: pd.DataFrame, securityname: str = ""):
+        """
+        Save the plot to files
+        """
+        fig = self.generate_plot(predictions, securityname)
+        info = self.generate_text(predictions, securityname)
+
+        if not os.path.exists(CHARTPATH):
+            os.mkdir(CHARTPATH)
+
+        path = os.path.join(CHARTPATH, securityname)
+
+        if not os.path.exists(path):
+            os.mkdir(path)
+        dt = datetime.now().strftime("%m-%d-%Y_%H-%M-%S")
+
+        imgname = securityname + "_" + dt + ".png"
+        htmname = securityname + "_" + dt + ".html"
+        returnname = securityname + "_" + dt + ".csv"
+        infoname = securityname + "_" + dt + ".txt"
+
+        imgpath = os.path.join(path, imgname)
+        htmpath = os.path.join(path, htmname)
+        returnpath = os.path.join(path, returnname)
+        infopath = os.path.join(path, infoname)
+
+        fig.write_image(imgpath, scale=2)
+        fig.write_html(htmpath)
+        predictions.to_csv(returnpath)
+        self.write_info(info, infopath)
 
     def generate_plot(self, predictions: pd.DataFrame, securityname: str = ""):
         """Generate a plot from the returns dataframe with columns ['return', 'strategy']"""

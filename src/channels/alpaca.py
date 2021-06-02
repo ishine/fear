@@ -154,6 +154,82 @@ class Alpaca:
             )
             return False
 
+    def submit_limit_buy(self, ticker, price, qty=1, time_in_force="day"):
+        """Submit a limit order
+
+        Params
+        ------
+        ticker : str
+            ticker to act on
+        price : float
+            price to buy at
+        qty : int
+            how many shares to sell/buy
+        time_in_force : str
+            expire timne
+
+        Returns
+        -------
+        True if completed
+        """
+        side = "buy"
+        try:
+            self.api.submit_order(
+                symbol=ticker,
+                qty=qty,  # fractional shares
+                side=side,
+                type="limit",
+                limit_price=price,
+                time_in_force=time_in_force,
+            )
+            logger.info(
+                f"Submitted limit {side} order for {qty} {ticker} @ ${price} (TIF={time_in_force})"
+            )
+            return True
+        except Exception as e:
+            logger.warning(
+                f"Couldn't submit limit {side} order for {qty} {ticker} @ ${price} ({e})"
+            )
+            return False
+
+    def submit_limit_sell(self, ticker, price, qty=1, time_in_force="day"):
+        """Submit a limit order
+
+        Params
+        ------
+        ticker : str
+            ticker to act on
+        price : float
+            price to buy at
+        qty : int
+            how many shares to sell/buy
+        time_in_force : str
+            expire timne
+
+        Returns
+        -------
+        True if completed
+        """
+        side = "sell"
+        try:
+            self.api.submit_order(
+                symbol=ticker,
+                qty=qty,  # fractional shares
+                side=side,
+                type="limit",
+                limit_price=price,
+                time_in_force=time_in_force,
+            )
+            logger.info(
+                f"Submitted limit {side} order for {qty} {ticker} @ ${price} (TIF={time_in_force})"
+            )
+            return True
+        except Exception as e:
+            logger.warning(
+                f"Couldn't submit limit {side} order for {qty} {ticker} @ ${price} ({e})"
+            )
+            return False
+
     def submit_market_order(self, ticker, side, qty=1, time_in_force="day"):
         """Submit a market order
 

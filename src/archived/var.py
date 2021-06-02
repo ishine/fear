@@ -2,15 +2,18 @@ from numpy.core.numeric import NaN
 from mlbase import BaseTrader
 from sys import exc_info
 import numpy as np, pandas as pd
-import logging
+import logging, warnings
 from channels.alpaca import Alpaca, TimeFrame
 from datetime import datetime, timedelta
 from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import AdaBoostClassifier
-
+from sklearn import linear_model
 from finta import TA as ta
+from statsmodels.tsa.api import VAR as StatsVAR
+from statsmodels.tsa.base.tsa_model import ValueWarning
 
+warnings.simplefilter(action="ignore", category=ValueWarning)
 
 logging.basicConfig(
     # filename,
@@ -20,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class ADA(BaseTrader):
+class VAR(BaseTrader):
     def __init__(
         self,
         window: int = 20,
@@ -35,7 +38,7 @@ class ADA(BaseTrader):
         """
         window: analysis window
         """
-        super(ADA, self).__init__(lags=lags)
+        super(VAR, self).__init__(lags=lags)
         self.window = window
         self.features = features
         self.cols = []  # cols different than features here
@@ -62,7 +65,7 @@ class ADA(BaseTrader):
     def _create_features(self, data: pd.DataFrame):
         """Create the features"""
         data = data.copy()
-        data["vol"] = data["return"].rolling(self.window).std
+        data["vol"] = data["return"].rolling(self.window).std()
         data["mom"] = np.sign(data["return"].rolling(self.window).mean())
         data["sma"] = data["close"].rolling(self.window).mean()
         data["min"] = data["close"].rolling(self.window).min()
@@ -71,45 +74,26 @@ class ADA(BaseTrader):
         self.features.extend(["vol", "mom", "sma", "min", "max", "14 period RSI"])
         return data
 
-    def build(self, data: pd.DataFrame, summary: bool = False):
-        """Compile model"""
-        data = data.copy()
-        data = self.prime_data(data)
-        logger.info(f"Building model using features {self.cols}")
-        self.fit_scaler(data)
-        self.dtc = DecisionTreeClassifier(
-            random_state=self.random_state,
-            max_depth=self.max_depth,
-            min_samples_leaf=self.min_samples_leaf,
-        )
-        self.model = AdaBoostClassifier(
-            base_estimator=self.dtc,
-            n_estimators=self.estimators,
-            random_state=self.random_state,
-        )
-
-    def train(self, data: pd.DataFrame):
-        """Train the model"""
-        data = data.copy()
-        data = self.prime_data(data)
-        logger.info(f"Training model on {data.shape[0]} records")
-        data_normalized = self.normalize(data)
-        self.model.fit(data_normalized[self.cols], data["direction"])
-
-        accuracy = accuracy_score(
-            data["direction"], self.model.predict(data_normalized[self.cols])
-        )
-        logger.info(f"Accuracy score (in sample) = {accuracy:.4f}")
-
-    def predict(self, data: pd.DataFrame):
+    def predict(self, data: pd.DataFrame, start_at: int = 1):
         """Predict
-        Strict hold = introduce hold signals (0) as well, not just 1 and -1
+        start at = where to start
         """
         data = data.copy()
         data = self.prime_data(data)
+        self.fit_scaler(data)
         data_normalized = self.normalize(data)
-        data["prediction"] = self.model.predict(data_normalized[self.cols])
-        data["prediction"] = np.where(data["prediction"] == 0, -1, 1)
+        col_loc = data.columns.get_loc("direction")
+        pred = []
+        for pos in range(start_at, data.shape[0]):
+            sliced = data.iloc[:pos]
+            unfit_model = StatsVAR(sliced)
+            self.model = unfit_model.fit()
+            next_vals = self.model.forecast(self.model.endog, steps=1)[0]
+            next_direction = round(next_vals[col_loc])
+            pred.append(next_direction)  # get just direction
+        truncated = data.iloc[start_at:]
+        truncated["prediction"] = pred
+        print(pred)
         return data
 
     def get_signal(self, data: pd.DataFrame):
@@ -128,9 +112,8 @@ class ADA(BaseTrader):
         tt_split: int = 0.8,
         securityname: str = None,
     ):
-        data = data.copy()
         """Vectorize evaluate - split data into train and test, build, and evaluate"""
-        # prime data happens inside each function
+        data = data.copy()
 
         # split
         train, test = (
@@ -145,40 +128,8 @@ class ADA(BaseTrader):
         logger.info(
             f"Test: {test.index[0]} - {test.index[-1]} ({test.shape[0]}, {len(self.cols)})"
         )
-        # make model
-        self.build(train)
 
-        # train model
-        self.train(train)
-
-        # predict
-        predictions = self.predict(test)[["close", "return", "prediction"]]
-
-        # calcluate returns
-        predictions["strategy"] = predictions["prediction"] * predictions["return"]
-
-        # count trades
-        num_trades = (predictions["prediction"] != 0).sum()
-
-        logger.info(f"Trades made: {num_trades}")
-
-        # define returns
-        predictions["return"] = predictions["return"].cumsum().apply(np.exp)
-        predictions["strategy"] = predictions["strategy"].cumsum().apply(np.exp)
-
-        predictions["buys"] = (
-            np.where(predictions["prediction"] == -1, 1, NaN) * predictions["close"]
-        )
-        predictions["sells"] = (
-            np.where(predictions["prediction"] == 1, 1, NaN) * predictions["close"]
-        )
-
-        returns = predictions[["return", "strategy"]]  # .cumsum().apply(np.exp)
-
-        logger.info(f"Returns [{securityname}]:\n{returns.tail(1)}")
-        # write to csv and stuff
-        if securityname:
-            self.save_plot(predictions, securityname)
+        self.predict(data, start_at=int(data.shape[0] * tt_split))
 
 
 if __name__ == "__main__":
@@ -191,6 +142,6 @@ if __name__ == "__main__":
     )
 
     # create fednn
-    ada = ADA()
+    var = VAR()
     # evaluate
-    ada.evaluate(data, tt_split=0.8, securityname=symbol)
+    var.evaluate(data, tt_split=0.8, securityname=symbol)

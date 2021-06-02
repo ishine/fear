@@ -126,16 +126,12 @@ class FEDNN(BaseTrader):  # feature engineering deep neural network
             )
         return df
 
-    def prime_data(self, data: pd.DataFrame, prune: bool = False):
-        """Prime the data for the network"""
-        if prune:
-            data = data[["close"]]
-        data = self._create_returns(data)
-        data = self._create_direction(data)
-        data = self._create_features(data)
-        data = self._create_lags(data)
-        self.cols = list(set(self.cols))  # remove duplicates
-        # logger.info("Primed data")
+    def _create_direction(self, data: pd.DataFrame):
+        """Create direction from returns"""
+        try:
+            data["direction"] = np.where(data["return"] > 0, 1, 0)
+        except Exception as e:
+            logger.warning(f"Unknown error occured while generating direction ({e})")
         return data
 
     def fit_scaler(self, data: pd.DataFrame):
@@ -276,6 +272,7 @@ class FEDNN(BaseTrader):  # feature engineering deep neural network
         # write to csv and stuff
         if securityname:
             self.save_plot(predictions, securityname)
+        return returns
 
     def test_w_stocks(self, symbols: list, strict_hold=False):
         shuffle(symbols)

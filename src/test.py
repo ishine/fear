@@ -10,6 +10,10 @@ from strategies.knearest import FEKNNStrategy
 
 
 class TestScreener(unittest.TestCase):
+    def test_human_to_number(self):
+        cs = "1.7M"
+        self.assertEquals(Screener()._human_to_number(cs), 1700000)
+
     def test_active(self):
         received = Screener().get_active(count=10)
         self.assertFalse(received.empty)

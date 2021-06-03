@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 
 from channels.alpaca import Alpaca, TimeFrame
 from channels.binanceus import BinanceUS
-from dnn import FEDNNStrategy
-from knearest import FEKNNStrategy
+from strategies.dnn import FEDNNStrategy
+from strategies.knearest import FEKNNStrategy
 from random import shuffle
 
 # logging
@@ -39,6 +39,7 @@ if __name__ == "__main__":
 
     # create knn
     knn = FEKNNStrategy()
+    knn.tune(data)
     # evaluate
     knn.evaluate(data, tt_split=0.8, securityname=symbol)
     # create dnn

@@ -271,7 +271,7 @@ class Alpaca:
             return self.api.get_account()
         except Exception as e:
             logger.warning(f"Couldn't get account info ({e})")
-            return {}
+            return None
 
     def any_open_orders(self) -> bool:
         """
@@ -302,7 +302,7 @@ class Alpaca:
     def get_buying_power(self):
         """Returns the buying_power you have"""
         try:
-            return self.api.get_account().buying_power
+            return float(self.api.get_account().buying_power)
         except Exception as e:
             logging.warning(f"Issue getting buying_power ({e})")
             return 0

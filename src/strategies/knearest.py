@@ -1,19 +1,13 @@
 from enum import Enum
 from numpy.core.numeric import NaN
-from base import BaseStrategy
-from sys import exc_info
+from strategies.base import BaseStrategy
 import numpy as np, pandas as pd
 import logging
-from channels.alpaca import Alpaca, TimeFrame
 from datetime import datetime, timedelta
 from sklearn.metrics import accuracy_score
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import AdaBoostClassifier
-from sklearn import linear_model
 from finta import TA as ta
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix
 
 logging.basicConfig(
     # filename,
@@ -176,19 +170,3 @@ class FEKNNStrategy(BaseStrategy):
         best = values.iloc[values["strategy"].values.argmax()]["k"]
         self.n_neighbors = best
         return best
-
-
-if __name__ == "__main__":
-    symbol = "iht"
-    ape = Alpaca()
-    data = ape.get_bars(
-        symbol,
-        start_time=datetime.now() - timedelta(days=10),
-        end_time=datetime.now(),
-    )
-
-    # create feknn
-    feknn = FEKNNStrategy()
-    # evaluate
-    feknn.tune(data)
-    feknn.evaluate(data, tt_split=0.7, securityname=symbol)

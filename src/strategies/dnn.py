@@ -8,10 +8,6 @@ from threading import Thread
 
 from numpy.core.numeric import NaN
 
-from channels.alpaca import Alpaca, TimeFrame
-from channels.binanceus import BinanceUS
-from channels.screener import Screener
-
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import numpy as np
 import pandas as pd
@@ -19,24 +15,16 @@ import tensorflow as tf
 from finta import TA as ta
 
 # just a test right now
-from keras import optimizers
-from keras.engine import training
-from sklearn import preprocessing
-from tqdm import tqdm, trange
-from base import BaseStrategy
+from strategies.base import BaseStrategy
 
 tf.get_logger().setLevel("ERROR")
 tf.autograph.set_verbosity(1)
 
-import plotly.express as px
-import plotly.graph_objects as go
 from keras.layers import Dense
 from keras.models import Sequential
-from keras.optimizers import Adam, RMSprop
 from keras.utils.vis_utils import plot_model
-from plotly.subplots import make_subplots
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from keras.optimizers import Adam
 
 
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -294,37 +282,3 @@ class FEDNNStrategy(BaseStrategy):  # feature engineering deep neural network
                 )
             except Exception as e:
                 logging.warning(f"Couldn't do {symbol} ({e})")
-
-
-def test_w_crypto(symbols, strict_hold=False):
-    bnc = BinanceUS()
-    shuffle(symbols)
-    for symbol in symbols:
-        try:
-            data = bnc.get_bars(
-                symbol,
-                start_time=datetime.now() - timedelta(days=10),
-                end_time=datetime.now(),
-            )
-
-            # create fednn
-            fednn = FEDNNStrategy(epochs=25)
-            # evaluate
-            fednn.evaluate(
-                data, tt_split=0.8, securityname=symbol, strict_hold=strict_hold
-            )
-        except Exception as e:
-            logging.warning(f"Couldn't do {symbol} ({e})")
-
-
-if __name__ == "__main__":
-    screener = Screener()
-    cryptosymbols = [
-        "BTCUSD",
-        "ETHUSD",
-        "ADAUSD",
-    ]
-    stocksymbols = screener.get_active()["symbol"]
-    fednn = FEDNNStrategy()
-    fednn.test_w_stocks(stocksymbols, strict_hold=False)
-    test_w_crypto(cryptosymbols, strict_hold=True)

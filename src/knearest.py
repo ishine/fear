@@ -1,6 +1,6 @@
 from enum import Enum
 from numpy.core.numeric import NaN
-from mlbase import BaseTrader
+from base import BaseStrategy
 from sys import exc_info
 import numpy as np, pandas as pd
 import logging
@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class FEKNN(BaseTrader):
+class FEKNNStrategy(BaseStrategy):
     def __init__(
         self,
         window: int = 20,
@@ -33,7 +33,7 @@ class FEKNN(BaseTrader):
         """
         window: analysis window
         """
-        super(FEKNN, self).__init__(lags=lags)
+        super(FEKNNStrategy, self).__init__(lags=lags)
         self.n_neighbors = n_neighbors
         self.window = window
 
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     )
 
     # create feknn
-    feknn = FEKNN()
+    feknn = FEKNNStrategy()
     # evaluate
     feknn.tune(data)
     feknn.evaluate(data, tt_split=0.7, securityname=symbol)

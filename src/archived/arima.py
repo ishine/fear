@@ -1,5 +1,5 @@
 from numpy.core.numeric import NaN
-from mlbase import BaseTrader
+from base import BaseStrategy
 from sys import exc_info
 import numpy as np, pandas as pd
 import logging
@@ -21,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class ARIMA(BaseTrader):
+class ARIMA(BaseStrategy):
     def __init__(self, p=4, d=1, q=1):
         super(ARIMA, self).__init__()
         self.p = p

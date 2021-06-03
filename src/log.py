@@ -1,5 +1,5 @@
 from numpy.core.numeric import NaN
-from mlbase import BaseTrader
+from base import BaseStrategy
 from sys import exc_info
 import numpy as np, pandas as pd
 import logging
@@ -20,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class ADA(BaseTrader):
+class ADA(BaseStrategy):
     def __init__(
         self,
         window: int = 20,

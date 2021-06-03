@@ -23,7 +23,7 @@ from keras import optimizers
 from keras.engine import training
 from sklearn import preprocessing
 from tqdm import tqdm, trange
-from mlbase import BaseTrader
+from base import BaseStrategy
 
 tf.get_logger().setLevel("ERROR")
 tf.autograph.set_verbosity(1)
@@ -54,7 +54,7 @@ MODELPATH = "models"
 CHARTPATH = "chart"
 
 
-class FEDNN(BaseTrader):  # feature engineering deep neural network
+class FEDNNStrategy(BaseStrategy):  # feature engineering deep neural network
     def __init__(
         self,
         units: int = 64,
@@ -64,7 +64,7 @@ class FEDNN(BaseTrader):  # feature engineering deep neural network
         epochs: int = 25,
         mv_avgs: list = [5, 10, 20, 30, 50, 100, 200],
     ) -> None:
-        super(FEDNN, self).__init__(lags=lags, cols=cols)
+        super(FEDNNStrategy, self).__init__(lags=lags, cols=cols)
         self.mv_avgs = mv_avgs
 
         # for ml
@@ -308,7 +308,7 @@ def test_w_crypto(symbols, strict_hold=False):
             )
 
             # create fednn
-            fednn = FEDNN(epochs=25)
+            fednn = FEDNNStrategy(epochs=25)
             # evaluate
             fednn.evaluate(
                 data, tt_split=0.8, securityname=symbol, strict_hold=strict_hold
@@ -325,6 +325,6 @@ if __name__ == "__main__":
         "ADAUSD",
     ]
     stocksymbols = screener.get_active()["symbol"]
-    fednn = FEDNN()
+    fednn = FEDNNStrategy()
     fednn.test_w_stocks(stocksymbols, strict_hold=False)
     test_w_crypto(cryptosymbols, strict_hold=True)

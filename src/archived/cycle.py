@@ -1,6 +1,6 @@
 from channels.binanceus import BinanceUS
 from channels.alpaca import Alpaca, TimeFrame
-from dnn import FEDNN
+from dnn import FEDNNStrategy
 import threading
 import pandas as pd, numpy as np
 from time import sleep
@@ -28,7 +28,7 @@ class BinanceUSCycler:
         api_key: str = open("keys/binanceus-public").read().strip(),
         api_secret: str = open("keys/binanceus-private").read().strip(),
     ) -> None:
-        self.fednn = FEDNN()
+        self.fednn = FEDNNStrategy()
         self.binanceus = BinanceUS(api_key, api_secret)
         self.track = pd.DataFrame(
             columns=["price", "return", "signal", "prediction", "strategy"]
@@ -166,7 +166,7 @@ class AlpacaCycler:
         api_secret: str = open("keys/alpaca_paper_private").read().strip(),
         base_url: str = "https://paper-api.alpaca.markets",
     ) -> None:
-        self.fednn = FEDNN()
+        self.fednn = FEDNNStrategy()
         self.alpaca = Alpaca()
         self.track = pd.DataFrame(columns=["price", "prediction"])
 

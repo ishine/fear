@@ -168,10 +168,12 @@ class BaseTrader:
             os.mkdir(path)
         dt = datetime.now().strftime("%m-%d-%Y_%H-%M-%S")
 
-        imgname = securityname + "_" + dt + ".png"
-        htmname = securityname + "_" + dt + ".html"
-        returnname = securityname + "_" + dt + ".csv"
-        infoname = securityname + "_" + dt + ".txt"
+        modeltype = self.__class__.__name__
+
+        imgname = securityname + "_" + modeltype + "_" + dt + ".png"
+        htmname = securityname + "_" + modeltype + "_" + dt + ".html"
+        returnname = securityname + "_" + modeltype + "_" + dt + ".csv"
+        infoname = securityname + "_" + modeltype + "_" + dt + ".txt"
 
         imgpath = os.path.join(path, imgname)
         htmpath = os.path.join(path, htmname)

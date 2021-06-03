@@ -36,6 +36,8 @@ from keras.optimizers import Adam, RMSprop
 from keras.utils.vis_utils import plot_model
 from plotly.subplots import make_subplots
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -185,7 +187,9 @@ class FEDNN(BaseTrader):  # feature engineering deep neural network
             epochs=self.epochs,
             verbose=False,
         )
-        self.model.evaluate(data_normalized[self.cols], data["direction"])
+        validation = np.where(self.model.predict(data[self.cols]) > 0.5, 1, 0)
+        accuracy_in_sample = accuracy_score(data["direction"], validation)
+        logger.info(f"In-sample accuracy={accuracy_in_sample:.4f}")
 
     def predict(self, data: pd.DataFrame, strict_hold=False):
         """Predict

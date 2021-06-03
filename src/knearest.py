@@ -1,3 +1,4 @@
+from enum import Enum
 from numpy.core.numeric import NaN
 from mlbase import BaseTrader
 from sys import exc_info
@@ -22,17 +23,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class KNN(BaseTrader):
+class FEKNN(BaseTrader):
     def __init__(
         self,
         window: int = 20,
         lags: int = 6,
-        n_neighbors: int = 15,
+        n_neighbors: int = 65,
     ) -> None:
         """
         window: analysis window
         """
-        super(KNN, self).__init__(lags=lags)
+        super(FEKNN, self).__init__(lags=lags)
         self.n_neighbors = n_neighbors
         self.window = window
 
@@ -53,7 +54,17 @@ class KNN(BaseTrader):
         data = self._append_data(data, ta.RSI(data))
         # self.features.extend(["vol", "mom", "sma", "min", "max", "14 period RSI"])
         self._add_columns(
-            "close", "MA_Fast", "MA_Slow", "MACD", "MACD_signal", "14 period RSI"
+            "close",
+            "MA_Fast",
+            "MA_Slow",
+            "MACD",
+            "MACD_signal",
+            "14 period RSI",
+            "vol",
+            "mom",
+            "sma",
+            "min",
+            "max",
         )
         return data
 
@@ -101,9 +112,9 @@ class KNN(BaseTrader):
         tt_split: int = 0.8,
         securityname: str = None,
     ):
-        data = data.copy()
         """Vectorize evaluate - split data into train and test, build, and evaluate"""
         # prime data happens inside each function
+        data = data.copy()
 
         # split
         train, test = (
@@ -154,6 +165,18 @@ class KNN(BaseTrader):
             self.save_plot(predictions, securityname)
         return returns
 
+    def tune(self, data: pd.DataFrame, k_range: range = range(1, 70)):
+        """Search a k range and find the best param"""
+        values = pd.DataFrame(columns=["k", "strategy"])
+        for k in k_range:
+            self.n_neighbors = k
+            returns = self.evaluate(data, tt_split=0.7).tail(1)[["strategy"]]
+            returns["k"] = k
+            values = values.append(returns.iloc[[-1]])
+        best = values.iloc[values["strategy"].values.argmax()]["k"]
+        self.n_neighbors = best
+        return best
+
 
 if __name__ == "__main__":
     symbol = "iht"
@@ -164,8 +187,8 @@ if __name__ == "__main__":
         end_time=datetime.now(),
     )
 
-    # create knn
-    knn = KNN()
-    print(knn.prime_data(data))
+    # create feknn
+    feknn = FEKNN()
     # evaluate
-    knn.evaluate(data, tt_split=0.8, securityname=symbol)
+    feknn.tune(data)
+    feknn.evaluate(data, tt_split=0.7, securityname=symbol)

@@ -1,11 +1,11 @@
 import logging, os
 
 from datetime import datetime, timedelta
-from cycle import BinanceUSCycler
 
 from channels.alpaca import Alpaca, TimeFrame
 from channels.binanceus import BinanceUS
 from dnn import FEDNN
+from knearest import FEKNN
 from random import shuffle
 
 # logging
@@ -27,14 +27,21 @@ logging.basicConfig(
 
 logger = logging.getLogger("app")
 
-cycler = BinanceUSCycler()
-
-
-def test_bcycler(symbol, strict_hold=False):
-    logger.info(f"Testing on {symbol}")
-
-    cycler.cycle(symbol, strict_hold=strict_hold)
-
 
 if __name__ == "__main__":
-    test_bcycler("BTCUSD", strict_hold=False)
+    symbol = "iht"
+    ape = Alpaca()
+    data = ape.get_bars(
+        symbol,
+        start_time=datetime.now() - timedelta(days=10),
+        end_time=datetime.now(),
+    )
+
+    # create knn
+    knn = FEKNN()
+    # evaluate
+    knn.evaluate(data, tt_split=0.8, securityname=symbol)
+    # create dnn
+    dnn = FEDNN()
+    # evaluate
+    dnn.evaluate(data, tt_split=0.8, securityname=symbol)

@@ -1,10 +1,7 @@
 import logging
 import os
-import re
 from datetime import datetime, timedelta
-from inspect import CO_GENERATOR
 from random import shuffle
-from threading import Thread
 
 from numpy.core.numeric import NaN
 
@@ -22,10 +19,9 @@ tf.autograph.set_verbosity(1)
 
 from keras.layers import Dense
 from keras.models import Sequential
+from keras.optimizers import Adam
 from keras.utils.vis_utils import plot_model
 from sklearn.metrics import accuracy_score
-from keras.optimizers import Adam
-
 
 pd.options.mode.chained_assignment = None  # default='warn'
 

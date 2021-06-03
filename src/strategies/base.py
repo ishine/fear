@@ -67,6 +67,16 @@ class BaseStrategy:
             logger.warning(f"Unknown error occured while generating direction ({e})")
         return data
 
+    def _create_next_direction(self, data: pd.DataFrame):
+        """Create direction from returns"""
+        try:
+            data["next_direction"] = np.where(
+                data["close"].shift(-1) > data["close"], 1, -1
+            )
+        except Exception as e:
+            logger.warning(f"Unknown error occured while generating direction ({e})")
+        return data
+
     def _create_lags(self, data: pd.DataFrame):
         """Create the lags"""
         try:

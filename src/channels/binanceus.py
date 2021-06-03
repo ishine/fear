@@ -1,5 +1,4 @@
 from binance import Client
-from pprint import pprint
 from datetime import datetime, timedelta
 import pandas as pd
 import random

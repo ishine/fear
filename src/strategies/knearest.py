@@ -80,7 +80,7 @@ class FEKNNStrategy(BaseStrategy):
         accuracy_in_sample = accuracy_score(data["direction"], validation)
         logger.info(f"In-sample accuracy={accuracy_in_sample:.4f}")
 
-    def predict(self, data: pd.DataFrame):
+    def predict(self, data: pd.DataFrame, strict_hold: bool = False):
         """Predict
         Strict hold = introduce hold signals (0) as well, not just 1 and -1
         """
@@ -88,6 +88,11 @@ class FEKNNStrategy(BaseStrategy):
         data = self.prime_data(data)
 
         data["prediction"] = self.model.predict(data[self.cols])
+        if strict_hold:
+            data["prediction"] = (
+                data["prediction"] - data["prediction"].shift(1)
+            ) / 2  # add holding as 0
+            data.loc[data.index[0], "prediction"] = 0
         return data
 
     def get_signal(self, data: pd.DataFrame):
@@ -104,6 +109,7 @@ class FEKNNStrategy(BaseStrategy):
         self,
         data: pd.DataFrame,
         tt_split: int = 0.8,
+        strict_hold: bool = False,
         securityname: str = None,
     ):
         """Vectorize evaluate - split data into train and test, build, and evaluate"""
@@ -130,7 +136,9 @@ class FEKNNStrategy(BaseStrategy):
         self.train(train)
 
         # predict
-        predictions = self.predict(test)[["close", "return", "prediction"]]
+        predictions = self.predict(test, strict_hold=strict_hold)[
+            ["close", "return", "prediction"]
+        ]
 
         # calcluate returns
         predictions["strategy"] = predictions["prediction"] * predictions["return"]

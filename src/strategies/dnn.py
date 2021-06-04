@@ -74,7 +74,7 @@ class FEDNNStrategy(BaseStrategy):  # feature engineering deep neural network
             df = self._append_data(df, ta.MOM(df, 10))
             ## MACD (We rename the undescriptive "SIGNAL" here)
             df = self._append_data(df, ta.MACD(df)).rename(
-                columns={"SIGNAL": "MACD SIGNAL"}
+                columns={"SIGNAL": "MACD_SIGNAL"}
             )
             ## Sto-RSI
             df = self._append_data(df, ta.STOCHRSI(df))
@@ -102,7 +102,13 @@ class FEDNNStrategy(BaseStrategy):  # feature engineering deep neural network
             df["distance"] = (df["close"] - df["close"].rolling(50).mean()).shift(1)
             # print(df.columns)
             self._add_columns(
-                "momentum", "volatility", "distance", "14 period RSI", "volume"
+                "momentum",
+                "volatility",
+                "distance",
+                "14 period RSI",
+                "volume",
+                "MACD",
+                "MACD_SIGNAL",
             )
             ### drop na
             df.dropna(inplace=True)

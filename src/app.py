@@ -29,20 +29,21 @@ logger = logging.getLogger("app")
 
 
 if __name__ == "__main__":
-    symbol = "iht"
+    symbol = "tsla"
     ape = Alpaca()
     data = ape.get_bars(
         symbol,
-        start_time=datetime.now() - timedelta(days=10),
+        start_time=datetime.now() - timedelta(days=20),
         end_time=datetime.now(),
+        resample=2,
     )
 
     # create knn
     knn = FEKNNStrategy()
-    knn.tune(data)
+    # knn.tune(data)
     # evaluate
-    knn.evaluate(data, tt_split=0.8, securityname=symbol)
+    knn.evaluate(data, tt_split=0.8, securityname=symbol, strict_hold=True)
     # create dnn
     dnn = FEDNNStrategy()
     # evaluate
-    dnn.evaluate(data, tt_split=0.8, securityname=symbol)
+    dnn.evaluate(data, tt_split=0.8, securityname=symbol, strict_hold=True)

@@ -1,3 +1,4 @@
+from channels.oanda import OANDA
 import unittest
 from datetime import datetime, timedelta
 
@@ -40,6 +41,13 @@ class TestAlpaca(unittest.TestCase):
             start_time=datetime.now() - timedelta(weeks=52),
         )
         self.assertFalse(received.empty)
+        received = Alpaca().get_bars(
+            symbol,
+            timeframe=TimeFrame.Day,
+            start_time=datetime.now() - timedelta(weeks=52),
+            resample=5,
+        )
+        self.assertFalse(received.empty)
 
     def test_import_stock_data(self):
         symbols = ["gld", "spy"]
@@ -65,6 +73,21 @@ class TestAlpaca(unittest.TestCase):
     def test_get_buying_power(self):
         received = Alpaca().get_buying_power()
         self.assertTrue(type(received) is float or type(received) is int)
+
+
+class TestOANDA(unittest.TestCase):
+    def test_get_bars(self):
+        symbol = "EUR_USD"
+        received = OANDA().get_bars(
+            symbol,
+            timeframe="M1",
+            start_time=datetime.now() - timedelta(days=2),
+        )
+        self.assertFalse(received.empty)
+
+    def test_get_symbols(self):
+        received = OANDA().get_symbols()
+        self.assertTrue(received)
 
 
 if __name__ == "__main__":

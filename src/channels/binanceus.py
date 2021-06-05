@@ -1,3 +1,4 @@
+from channels.base import BaseAPI
 from binance import Client
 from datetime import datetime, timedelta
 import pandas as pd
@@ -10,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class BinanceUS:
+class BinanceUS(BaseAPI):
     def __init__(
         self,
         api_key=open("keys/binanceus-public").read().strip(),

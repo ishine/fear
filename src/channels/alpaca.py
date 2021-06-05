@@ -6,7 +6,7 @@ from time import sleep
 from abraham3k import Abraham
 import pandas as pd
 from multiprocessing import Pool, Process
-import random
+from channels.base import BaseAPI
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ import plotly.graph_objs as go
 DTFORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
-class Alpaca:
+class Alpaca(BaseAPI):
     def __init__(
         self,
         api_key=open("keys/alpaca_paper_public").read().strip(),
@@ -304,7 +304,7 @@ class Alpaca:
         try:
             return float(self.api.get_account().buying_power)
         except Exception as e:
-            logging.warning(f"Issue getting buying_power ({e})")
+            logging.warning(f"Couldnt get buying_power ({e})")
             return 0
 
 

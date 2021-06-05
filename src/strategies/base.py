@@ -5,6 +5,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 from threading import Thread
+from abc import abstractmethod
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 from time import sleep
@@ -39,12 +40,11 @@ class BaseStrategy:
         self,
         lags: int = 5,
         cols: list = ["return"],
-        api_key: str = open("keys/alpaca_paper_public").read().strip(),
-        api_secret: str = open("keys/alpaca_paper_private").read().strip(),
-        base_url: str = "https://paper-api.alpaca.markets",
+        momentum: list = [15, 30, 60, 120],
     ) -> None:
         self.lags = lags  # number of lags
         self.cols = cols  # col labels
+        self.momentum = momentum
 
     def _add_columns(self, *args):
         """Add columns to self.columns"""
@@ -89,6 +89,17 @@ class BaseStrategy:
             logger.warning(f"Unknown error occured while generating lags ({e})")
         return data
 
+    def _create_momentum(self, data: pd.DataFrame):
+        """Create the lags"""
+        try:
+            col = f"position_{self.momentum}"
+            data[col] = np.sign(data["return"].rolling(self.momentum).mean())
+            self.cols.append(col)
+            data.dropna(inplace=True)
+        except Exception as e:
+            logger.warning(f"Unknown error occured while generating lags ({e})")
+        return data
+
     def _append_data(
         self, maindf: pd.DataFrame, dataarray: list, namesarray: list = None
     ):
@@ -96,7 +107,9 @@ class BaseStrategy:
             return maindf.join(pd.DataFrame(dataarray), how="outer")
         return maindf.join(pd.DataFrame(dataarray, columns=namesarray), how="outer")
 
+    @abstractmethod
     def _create_features(self, data: pd.DataFrame):
+        """To be implemented"""
         return data
 
     def prime_data(self, data: pd.DataFrame, prune: bool = False):
@@ -108,7 +121,6 @@ class BaseStrategy:
         data = self._create_features(data)
         data = self._create_lags(data)
         self.cols = list(set(self.cols))  # remove duplicates
-        # logger.info("Primed data")
         return data
 
     def fit_scaler(self, data: pd.DataFrame):
@@ -121,12 +133,19 @@ class BaseStrategy:
         normalized = (data - self.mu) / self.std
         return normalized
 
+    @abstractmethod
     def build(self, data: pd.DataFrame):
         """Compile model"""
         pass
 
+    @abstractmethod
     def train(self, data: pd.DataFrame):
         """Train the model"""
+        pass
+
+    @abstractmethod
+    def evaluate(self, data: pd.DataFrame):
+        """Evaluate the model"""
         pass
 
     def write_info(self, text: str, filepath: str):
@@ -134,6 +153,7 @@ class BaseStrategy:
         with open(filepath, "w+") as f:
             f.write(text)
 
+    @abstractmethod
     def generate_text(self, predictions: pd.DataFrame, securityname: str = ""):
         """Writes the hyper params to file"""
         pass
@@ -534,18 +554,21 @@ class BaseCycler:
         training_thread.join()
         trading_thread.join()
 
+    @abstractmethod
     def build_models(self, data):
         """
         Build model to be implemented
         """
         pass
 
+    @abstractmethod
     def train_models(self, data):
         """
         Train model to be implemented
         """
         pass
 
+    @abstractmethod
     def get_data(self, ticker: str, **kwargs):
         """
         Train model to be implemented
@@ -559,10 +582,12 @@ class BaseCycler:
         """
         pass
 
+    @abstractmethod
     def get_signal(self, datà):
         """Get the signals"""
         pass
 
+    @abstractmethod
     def submit_limit_order(self, ticker: str, side: str, price: float, qty: int = 1):
         """Submit order
         Example:

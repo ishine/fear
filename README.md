@@ -65,27 +65,31 @@ This same strategy works for cryptocurrency as well, as you can see below.
 
 [(Back to top)](#table-of-contents)
 
-Coming soon!
+```bash
+$ git clone https://github.com/ckinateder/fear.git
+```
 
 ## Usage
 
 [(Back to top)](#table-of-contents)
 
-Coming soon!
+Right now, it isn't much of an application as it is a developing playground, but you can run it with
+
+```bash
+(fear)$ python3 src/app.py
+```
 
 ## Development
 
 [(Back to top)](#table-of-contents)
 
-When designing live implementations, a signal of `-1` is a buy signal, and `1` for sell. 
-
-Coming soon!
+Currently, live streaming and forex support via OANDA is being added.
 
 ## Contribute
 
 [(Back to top)](#table-of-contents)
 
-Pull requests welcome. For larger features/issues, open an issue to track changes..
+Pull requests welcome. For larger features/issues, open an issue to track changes.
 
 ### Sponsor
 

@@ -131,7 +131,7 @@ class Screener:
                 "name": cols[1],
                 "price": self._human_to_number(cols[2]),
                 "market_time": pd.to_datetime(cols[3]),
-                "change": float(cols[4]),
+                "change": float(cols[4].replace(",", "")),
                 "pct_change": float(cols[5].replace("%", "")),
                 "volume": self._human_to_number(cols[6]),
                 "cap": self._human_to_number(cols[7]),

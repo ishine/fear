@@ -35,15 +35,14 @@ if __name__ == "__main__":
         symbol,
         start_time=datetime.now() - timedelta(days=20),
         end_time=datetime.now(),
-        resample=2,
+        resample=1,
     )
-
     # create knn
     knn = FEKNNStrategy()
     # knn.tune(data)
     # evaluate
-    knn.evaluate(data, tt_split=0.8, securityname=symbol, strict_hold=True)
+    knn.evaluate(data, tt_split=0.8, securityname=symbol)
     # create dnn
     dnn = FEDNNStrategy()
     # evaluate
-    dnn.evaluate(data, tt_split=0.8, securityname=symbol, strict_hold=True)
+    dnn.evaluate(data, tt_split=0.8, securityname=symbol)

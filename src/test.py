@@ -1,4 +1,5 @@
-from channels.oanda import OANDA
+from channels.oanda_opy import OANDA as OANDAOPY
+from channels.oanda_opy import OANDA as OANDATPQ
 import unittest
 from datetime import datetime, timedelta
 
@@ -75,10 +76,10 @@ class TestAlpaca(unittest.TestCase):
         self.assertTrue(type(received) is float or type(received) is int)
 
 
-class TestOANDA(unittest.TestCase):
+class TestOANDAOPY(unittest.TestCase):
     def test_get_bars(self):
         symbol = "EUR_USD"
-        received = OANDA().get_bars(
+        received = OANDAOPY().get_bars(
             symbol,
             timeframe="M1",
             start_time=datetime.now() - timedelta(days=2),
@@ -86,7 +87,22 @@ class TestOANDA(unittest.TestCase):
         self.assertFalse(received.empty)
 
     def test_get_symbols(self):
-        received = OANDA().get_symbols()
+        received = OANDAOPY().get_symbols()
+        self.assertTrue(received)
+
+
+class TestOANDATPQ(unittest.TestCase):
+    def test_get_bars(self):
+        symbol = "EUR_USD"
+        received = OANDATPQ().get_bars(
+            symbol,
+            timeframe="M1",
+            start_time=datetime.now() - timedelta(days=2),
+        )
+        self.assertFalse(received.empty)
+
+    def test_get_symbols(self):
+        received = OANDATPQ().get_symbols()
         self.assertTrue(received)
 
 

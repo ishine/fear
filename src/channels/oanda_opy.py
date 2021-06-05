@@ -1,4 +1,7 @@
-from channels.base import BaseAPI
+try:
+    from channels.base import BaseAPI
+except:
+    from base import BaseAPI
 from os import access
 import oandapy, logging, statistics
 from datetime import datetime, timedelta
@@ -14,6 +17,22 @@ logger = logging.getLogger(__name__)
 DTFORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
+class OANDAOPYStream(oandapy.Streamer):
+    def __init__(self, count=10, *args, **kwargs):
+        super(OANDAOPYStream, self).__init__(*args, **kwargs)
+        self.count = count
+        self.reccnt = 0
+
+    def on_success(self, data):
+        print(data)
+        self.reccnt += 1
+        if self.reccnt == self.count:
+            self.disconnect()
+
+    def on_error(self, data):
+        self.disconnect()
+
+
 class OANDA(BaseAPI):
     def __init__(
         self,
@@ -23,6 +42,7 @@ class OANDA(BaseAPI):
     ) -> None:
         self.account_id = account_id
         self.api = oandapy.API(environment=mode, access_token=access_token)
+        self.streamer = OANDAOPYStream(environment=mode, access_token=access_token)
 
     def get_symbols(self):
         """Get available symbols"""
@@ -137,4 +157,5 @@ class OANDA(BaseAPI):
 
 if __name__ == "__main__":
     o = OANDA()
+    o.streamer.rates(o.account_id, instruments="EUR_USD,EUR_JPY,US30_USD,DE30_EUR")
     print(o.get_bars("EUR_USD"))

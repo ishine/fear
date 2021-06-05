@@ -267,20 +267,3 @@ class FEDNNStrategy(BaseStrategy):  # feature engineering deep neural network
         if securityname:
             self.save_plot(predictions, securityname)
         return returns
-
-    def test_w_stocks(self, symbols: list, strict_hold=False):
-        shuffle(symbols)
-        for symbol in symbols:
-            try:
-                data = self.alpaca.get_bars(
-                    symbol,
-                    timeframe=TimeFrame.Minute,
-                    start_time=datetime.now() - timedelta(days=10),
-                    end_time=datetime.now(),
-                )
-                # evaluate
-                self.evaluate(
-                    data, tt_split=0.7, securityname=symbol, strict_hold=strict_hold
-                )
-            except Exception as e:
-                logging.warning(f"Couldn't do {symbol} ({e})")

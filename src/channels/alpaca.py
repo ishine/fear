@@ -6,7 +6,11 @@ from time import sleep
 from abraham3k import Abraham
 import pandas as pd
 from multiprocessing import Pool, Process
-from channels.base import BaseAPI
+
+try:
+    from channels.base import BaseAPI
+except:
+    from base import BaseAPI
 import logging
 
 logger = logging.getLogger(__name__)

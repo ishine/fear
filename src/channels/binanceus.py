@@ -1,4 +1,7 @@
-from channels.base import BaseAPI
+try:
+    from channels.base import BaseAPI
+except:
+    from base import BaseAPI
 from binance import Client
 from datetime import datetime, timedelta
 import pandas as pd

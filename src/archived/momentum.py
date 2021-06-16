@@ -1,5 +1,5 @@
 from numpy.core.numeric import NaN
-from strategies.base import BaseStrategy
+from strategies_support.base import BasePredictor
 import numpy as np, pandas as pd
 import logging
 from datetime import datetime, timedelta
@@ -16,7 +16,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class MOMStrategy(BaseStrategy):
+class MOMStrategy(BasePredictor):
     def __init__(self, lags: int = 6, momentum: int = 30) -> None:
         """
         window: analysis window

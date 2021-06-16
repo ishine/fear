@@ -56,7 +56,6 @@ This same strategy works for cryptocurrency as well, as you can see below.
   - [Installation](#installation)
   - [Usage](#usage)
   - [Development](#development)
-  - [Contribute](#contribute)
     - [Sponsor](#sponsor)
     - [Adding new features or fixing bugs](#adding-new-features-or-fixing-bugs)
   - [License](#license)
@@ -83,13 +82,41 @@ Right now, it isn't much of an application as it is a developing playground, but
 
 [(Back to top)](#table-of-contents)
 
-Currently, live streaming and forex support via OANDA is being added.
+FEAR has a sandbox set up for developing trading strategies. At its base level, you can create a strategy with a few simple. First, add a new class to the `strategies.py` file and inherit the `cyclers.BaseCycler` class. Don't forget to call `super` to initialize the parent. Implement the following methods:
 
-## Contribute
+```python
+# primary
+@abstractmethod
+def cycle_train(self, symbol: str, period: timedelta = timedelta(minutes=30)):
+  """Cycles training the prediction model"""
 
-[(Back to top)](#table-of-contents)
+@abstractmethod
+def cycle_trades(self, symbol: str):
+  """Cycle the trading/deciding"""
 
-Pull requests welcome. For larger features/issues, open an issue to track changes.
+# secondary
+@abstractmethod
+def build_models(self, data):
+  """Build models used"""
+
+@abstractmethod
+def train_models(self, data):
+  """Train models used"""
+
+@abstractmethod
+def get_data(self, symbol: str, **kwargs):
+  """This could be pulling and processing from the database, or pulling from a server"""
+
+@abstractmethod
+def get_signal(self, datà):
+  """Given data, process and generate a signal from the model"""
+
+@abstractmethod
+def submit_limit_order(self, symbol: str, side: str, price: float, qty: int = 1):
+  """Submit order"""
+```
+
+This way, you can call `<your strategy name>.cycle(<symbol>, <search term>)` to run everything. I'll post a sample strategy as well.
 
 ### Sponsor
 

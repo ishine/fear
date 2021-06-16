@@ -1,6 +1,6 @@
 from channels.binanceus import BinanceUS
 from channels.alpaca import Alpaca, TimeFrame
-from dnn import FEDNNStrategy
+from predictors import FEDNNPredictor
 import threading
 import pandas as pd, numpy as np
 from time import sleep
@@ -28,7 +28,7 @@ class BinanceUSCycler:
         api_key: str = open("keys/binanceus-public").read().strip(),
         api_secret: str = open("keys/binanceus-private").read().strip(),
     ) -> None:
-        self.fednn = FEDNNStrategy()
+        self.fepredictors = FEDNNPredictor()
         self.binanceus = BinanceUS(api_key, api_secret)
         self.track = pd.DataFrame(
             columns=["price", "return", "signal", "prediction", "strategy"]
@@ -48,18 +48,18 @@ class BinanceUSCycler:
         )
         self.track.to_csv(TRACKPATH)
 
-    def trade(self, ticker: str, side: str, price: float, qty: int):
+    def trade(self, symbol: str, side: str, price: float, qty: int):
         """Trades if all checks pass"""
         return False
 
-    def cycle_trades(self, ticker: str, strict_hold=False):
+    def cycle_trades(self, symbol: str, strict_hold=False):
         """
         Cycles between predicting and trading
 
         Params
         ------
-        ticker : str
-            stock ticker
+        symbol : str
+            stock symbol
         spend_amt : int = 1000
             max amount of money to spend
         """
@@ -67,7 +67,7 @@ class BinanceUSCycler:
         while True:
             # get the data
             data = self.binanceus.get_bars(
-                ticker,
+                symbol,
                 start_time=datetime.now() - timedelta(hours=12),
                 end_time=datetime.now(),
             )
@@ -75,7 +75,7 @@ class BinanceUSCycler:
             price = close[-1]
             qty = 1
 
-            prediction = self.fednn.get_signal(data, strict_hold=strict_hold)
+            prediction = self.fepredictors.get_signal(data, strict_hold=strict_hold)
 
             if prediction == -1:
                 signal = "buy"
@@ -86,19 +86,19 @@ class BinanceUSCycler:
             self._add_track(price, prediction, signal)
             logger.info(f"{signal} {qty} @ {price:.2f}")
             # act
-            # self.trade(ticker, signal, price, qty)
+            # self.trade(symbol, signal, price, qty)
             # sleep til next min start
             logger.info(f"Sleeping {60 - datetime.now().second} s ...")
             sleep(60 - datetime.now().second)
 
-    def cycle_train(self, ticker: str, train_interval: int = 30):
+    def cycle_train(self, symbol: str, train_interval: int = 30):
         """
         Cycles training the prediction model
 
         Params
         ------
-        ticker : str
-            stock ticker
+        symbol : str
+            stock symbol
         train_interval : int
             how many minutes between trains
         """
@@ -107,42 +107,42 @@ class BinanceUSCycler:
 
         # build the model
         data = self.binanceus.get_bars(
-            ticker,
+            symbol,
             # timeframe=TimeFrame.Minute,
             start_time=datetime.now() - timedelta(days=14),
         )
-        self.fednn.build(data)
+        self.fepredictors.build(data)
 
         while True:
-            self.fednn.train(data)
+            self.fepredictors.train(data)
             logger.info(f"Sleeping {interval} mins ...")
             sleep(interval)
             data = self.binanceus.get_bars(
-                ticker,
+                symbol,
                 # timeframe=TimeFrame.Minute,
                 start_time=datetime.now() - timedelta(days=14),
             )
 
-    def cycle(self, ticker: str, train_interval: int = 30, strict_hold=False):
+    def cycle(self, symbol: str, train_interval: int = 30, strict_hold=False):
         """
         first train then start
         # build the model
         data = self.binanceus.get_bars(
-            ticker,
+            symbol,
             # timeframe=TimeFrame.Minute,
             start_time=datetime.now() - timedelta(days=14),
         )
-        self.fednn.build(data)
-        self.fednn.train(data)
+        self.fepredictors.build(data)
+        self.fepredictors.train(data)
 
-        self.cycle_trades(ticker)
+        self.cycle_trades(symbol)
 
         """
         logger.info("Starting training thread")
         training_thread = Thread(
             target=self.cycle_train,
             args=(
-                ticker,
+                symbol,
                 train_interval,
             ),
         )
@@ -151,7 +151,7 @@ class BinanceUSCycler:
         logger.info("Starting trading thread")
         trading_thread = Thread(
             target=self.cycle_trades,
-            args=(ticker, strict_hold),
+            args=(symbol, strict_hold),
         )
         trading_thread.start()
         # join
@@ -166,7 +166,7 @@ class AlpacaCycler:
         api_secret: str = open("keys/alpaca_paper_private").read().strip(),
         base_url: str = "https://paper-api.alpaca.markets",
     ) -> None:
-        self.fednn = FEDNNStrategy()
+        self.fepredictors = FEDNNPredictor()
         self.alpaca = Alpaca()
         self.track = pd.DataFrame(columns=["price", "prediction"])
 
@@ -175,17 +175,17 @@ class AlpacaCycler:
             pd.DataFrame({"price": [price], "prediction": [prediction]})
         )
 
-    def trade(self, ticker: str, side: str, price: float, qty: int):
+    def trade(self, symbol: str, side: str, price: float, qty: int):
         """Trades if all checks pass"""
         buying_power = self.alpaca.get_buying_power()
-        num_shares = self.alpaca.get_shares(ticker)
+        num_shares = self.alpaca.get_shares(symbol)
         open_trades = self.alpaca.any_open_orders()
 
         try:
             if side == "buy":
                 if buying_power >= price * qty:
                     self.alpaca.submit_limit_order(
-                        ticker=ticker, side=side, price=price, qty=qty
+                        symbol=symbol, side=side, price=price, qty=qty
                     )
                     return True
                 else:
@@ -194,7 +194,7 @@ class AlpacaCycler:
                     )
             elif side == "sell":
                 self.alpaca.submit_limit_order(
-                    ticker=ticker, side=side, price=price, qty=qty
+                    symbol=symbol, side=side, price=price, qty=qty
                 )
                 return True
             elif side == "hold":  # do nothing
@@ -205,14 +205,14 @@ class AlpacaCycler:
             )
         return False
 
-    def cycle_trades(self, ticker: str):
+    def cycle_trades(self, symbol: str):
         """
         Cycles between predicting and trading
 
         Params
         ------
-        ticker : str
-            stock ticker
+        symbol : str
+            stock symbol
         spend_amt : int = 1000
             max amount of money to spend
         """
@@ -220,7 +220,7 @@ class AlpacaCycler:
         while True:
             # get the data
             data = self.alpaca.get_bars(
-                ticker,
+                symbol,
                 timeframe=TimeFrame.Minute,
                 start_time=datetime.now() - timedelta(hours=12),
                 end_time=datetime.now(),
@@ -229,7 +229,7 @@ class AlpacaCycler:
             price = close[-1]
             qty = 1
 
-            prediction = self.fednn.get_signal(data)
+            prediction = self.fepredictors.get_signal(data)
 
             if prediction == -1:
                 signal = "buy"
@@ -241,19 +241,19 @@ class AlpacaCycler:
             self._add_track(price, prediction)
             logger.info(f"{signal} {qty} @ {price:.2f}")
             # act
-            # self.trade(ticker, signal, price, qty)
+            # self.trade(symbol, signal, price, qty)
             # sleep til next min start
             logger.info(f"Sleeping {60 - datetime.now().second} s ...")
             sleep(60 - datetime.now().second)
 
-    def cycle_train(self, ticker: str, train_interval: int = 30):
+    def cycle_train(self, symbol: str, train_interval: int = 30):
         """
         Cycles training the prediction model
 
         Params
         ------
-        ticker : str
-            stock ticker
+        symbol : str
+            stock symbol
         train_interval : int
             how many minutes between trains
         """
@@ -262,42 +262,42 @@ class AlpacaCycler:
 
         # build the model
         data = self.alpaca.get_bars(
-            ticker,
+            symbol,
             timeframe=TimeFrame.Minute,
             start_time=datetime.now() - timedelta(days=14),
         )
-        self.fednn.build(data)
+        self.fepredictors.build(data)
 
         while True:
-            self.fednn.train(data)
+            self.fepredictors.train(data)
             logger.info(f"Sleeping {interval} mins ...")
             sleep(interval)
             data = self.alpaca.get_bars(
-                ticker,
+                symbol,
                 timeframe=TimeFrame.Minute,
                 start_time=datetime.now() - timedelta(days=14),
             )
 
-    def cycle(self, ticker: str, train_interval: int = 30):
+    def cycle(self, symbol: str, train_interval: int = 30):
         """
         first train then start
         # build the model
         data = self.binanceus.get_bars(
-            ticker,
+            symbol,
             # timeframe=TimeFrame.Minute,
             start_time=datetime.now() - timedelta(days=14),
         )
-        self.fednn.build(data)
-        self.fednn.train(data)
+        self.fepredictors.build(data)
+        self.fepredictors.train(data)
 
-        self.cycle_trades(ticker)
+        self.cycle_trades(symbol)
 
         """
         logger.info("Starting training thread")
         training_thread = Thread(
             target=self.cycle_train,
             args=(
-                ticker,
+                symbol,
                 train_interval,
             ),
         )
@@ -306,7 +306,7 @@ class AlpacaCycler:
         logger.info("Starting trading thread")
         trading_thread = Thread(
             target=self.cycle_trades,
-            args=(ticker,),
+            args=(symbol,),
         )
         trading_thread.start()
         # join

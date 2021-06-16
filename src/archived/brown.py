@@ -30,7 +30,7 @@ class MonteCarlo:
     def _market_data_combination(
         self,
         data: pd.Series,
-        mark_ticker: str = "spy",
+        mark_symbol: str = "spy",
         start_time: timedelta = datetime.now() - timedelta(days=365),
     ):
         """Combine market data with a reference against the index
@@ -38,7 +38,7 @@ class MonteCarlo:
         """
         data = pd.DataFrame(data)
 
-        market_data = self.alpaca.import_stock_data([mark_ticker], start_time)
+        market_data = self.alpaca.import_stock_data([mark_symbol], start_time)
         market_rets = self.log_returns(market_data).dropna()
         ann_return = np.exp(market_rets.mean() * 252).values - 1
         data = data.merge(market_data, left_index=True, right_index=True)
@@ -47,7 +47,7 @@ class MonteCarlo:
     def beta_sharpe(
         self,
         data: pd.Series,
-        mark_ticker: str = "spy",
+        mark_symbol: str = "spy",
         start_time: timedelta = datetime.now() - timedelta(days=365),
         riskfree=0.025,
     ):
@@ -69,7 +69,7 @@ class MonteCarlo:
         Params
         ------
         data: series of stock price data
-        mark_ticker: ticker of the market data you want to compute CAPM metrics with (default is ^GSPC)
+        mark_symbol: symbol of the market data you want to compute CAPM metrics with (default is ^GSPC)
         start: data from which to download data (default Jan 1st 2010)
         riskfree: the assumed risk free yield (US 10 Year Bond is assumed: 2.5%)
 
@@ -78,7 +78,7 @@ class MonteCarlo:
         Dataframe with CAPM metrics computed against specified market procy
         """
         # Beta
-        dd, mark_ret = self._market_data_combination(data, mark_ticker, start_time)
+        dd, mark_ret = self._market_data_combination(data, mark_symbol, start_time)
         log_ret = self.log_returns(dd)
         covar = log_ret.cov() * 252
         covar = pd.DataFrame(covar.iloc[:-1, -1])
@@ -90,11 +90,11 @@ class MonteCarlo:
 
         # CAPM
         for i, row in beta.iterrows():
-            beta.at[i, "CAPM"] = riskfree + (row[mark_ticker] * (mark_ret - riskfree))
+            beta.at[i, "CAPM"] = riskfree + (row[mark_symbol] * (mark_ret - riskfree))
         # Sharpe
         for i, row in beta.iterrows():
             beta.at[i, "Sharpe"] = (row["CAPM"] - riskfree) / (row["STD"])
-        beta.rename(columns={mark_ticker: "Beta"}, inplace=True)
+        beta.rename(columns={mark_symbol: "Beta"}, inplace=True)
         logger.info(beta)
         return beta
 

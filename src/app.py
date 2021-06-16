@@ -1,12 +1,11 @@
-import logging, os
-
+import logging
+import os
 from datetime import datetime, timedelta
+from random import shuffle
 
 from channels.alpaca import Alpaca, TimeFrame
 from channels.binanceus import BinanceUS
-from strategies.dnn import FEDNNStrategy
-from strategies.knearest import FEKNNStrategy
-from random import shuffle
+from strategies_support.predictors import FEDNNPredictor, FEKNNPredictor
 
 # logging
 
@@ -29,20 +28,22 @@ logger = logging.getLogger("app")
 
 
 if __name__ == "__main__":
-    symbol = "tsla"
+
+    symbols = ["tsla", "iht", "spy"]
     ape = Alpaca()
-    data = ape.get_bars(
-        symbol,
-        start_time=datetime.now() - timedelta(days=20),
-        end_time=datetime.now(),
-        resample=1,
-    )
-    # create knn
-    knn = FEKNNStrategy()
-    # knn.tune(data)
-    # evaluate
-    knn.evaluate(data, tt_split=0.8, securityname=symbol)
-    # create dnn
-    dnn = FEDNNStrategy()
-    # evaluate
-    dnn.evaluate(data, tt_split=0.8, securityname=symbol)
+    for symbol in symbols:
+        data = ape.get_bars(
+            symbol,
+            start_time=datetime.now() - timedelta(days=14),
+            end_time=datetime.now(),
+            resample=1,
+        )
+        # create knn
+        knn = FEKNNPredictor()
+        # knn.tune(data)
+        # evaluate
+        knn.evaluate(data, tt_split=0.8, securityname=symbol)
+        # create predictors
+        predictors = FEDNNPredictor()
+        # evaluate
+        predictors.evaluate(data, tt_split=0.8, securityname=symbol)

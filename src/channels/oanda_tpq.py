@@ -32,7 +32,7 @@ class OANDA(BaseAPI, tpqoa.tpqoa):
 
     def get_bars(
         self,
-        ticker,
+        symbol,
         timeframe: str = "M1",
         start_time: timedelta = datetime.now() - timedelta(hours=24),
         end_time: timedelta = datetime.now(),
@@ -44,8 +44,8 @@ class OANDA(BaseAPI, tpqoa.tpqoa):
 
         Params
         ------
-        ticker : str
-            ticker to search for
+        symbol : str
+            symbol to search for
         timeframe : str = "M1"
             the timeframe (granularity) - see
             http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
@@ -67,7 +67,7 @@ class OANDA(BaseAPI, tpqoa.tpqoa):
         end = end_time.replace(second=0, microsecond=0)
         try:
             df = self.api.get_history(
-                instrument=ticker,
+                instrument=symbol,
                 granularity=timeframe,
                 price=book,
                 start=start,
@@ -76,20 +76,20 @@ class OANDA(BaseAPI, tpqoa.tpqoa):
             df.index.rename("timestamp", inplace=True)
 
             logger.info(
-                f"Fetched {df.shape[0]} bars for '{ticker}' from {start} to {end} with freq {timeframe} and resample {resample}"
+                f"Fetched {df.shape[0]} bars for '{symbol}' from {start} to {end} with freq {timeframe} and resample {resample}"
             )
             if resample > 1:
                 df = df.iloc[df.shape[0] % resample - 1 :: resample]
             return df
         except Exception as e:
             logger.warning(
-                f"Couldn't get bars for {ticker} from {start} to {end} with freq {timeframe} ({e})"
+                f"Couldn't get bars for {symbol} from {start} to {end} with freq {timeframe} ({e})"
             )
             return pd.DataFrame()
 
     def submit_market_order(
         self,
-        ticker,
+        symbol,
         side,
         qty=1,
     ):
@@ -97,8 +97,8 @@ class OANDA(BaseAPI, tpqoa.tpqoa):
 
         Params
         ------
-        ticker : str
-            ticker to act on
+        symbol : str
+            symbol to act on
         side : str
             buy or sell
         qty : int
@@ -116,14 +116,14 @@ class OANDA(BaseAPI, tpqoa.tpqoa):
             multiplier = 1
         try:
             self.api.submit_order(
-                ticker,
+                symbol,
                 units=qty * multiplier,
             )
-            logger.info(f"Submitted market {side} order for {qty} {ticker}")
+            logger.info(f"Submitted market {side} order for {qty} {symbol}")
             return True
         except Exception as e:
             logger.warning(
-                f"Couldn't submit market {side} order for {qty} {ticker} ({e})"
+                f"Couldn't submit market {side} order for {qty} {symbol} ({e})"
             )
             return False
 
@@ -134,5 +134,5 @@ class OANDA(BaseAPI, tpqoa.tpqoa):
 
 if __name__ == "__main__":
     o = OANDA()
-    o.stream_data("EUR_USD", stop=5)
+    o.stream_data("EUR_USD")
     print(o.get_bars("EUR_USD"))

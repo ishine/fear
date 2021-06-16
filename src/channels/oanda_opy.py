@@ -17,32 +17,17 @@ logger = logging.getLogger(__name__)
 DTFORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
-class OANDAOPYStream(oandapy.Streamer):
-    def __init__(self, count=10, *args, **kwargs):
-        super(OANDAOPYStream, self).__init__(*args, **kwargs)
-        self.count = count
-        self.reccnt = 0
-
-    def on_success(self, data):
-        print(data)
-        self.reccnt += 1
-        if self.reccnt == self.count:
-            self.disconnect()
-
-    def on_error(self, data):
-        self.disconnect()
-
-
 class OANDA(BaseAPI):
     def __init__(
         self,
         account_id: str = open("keys/oanda-id").read().strip(),
         access_token: str = open("keys/oanda-access-token").read().strip(),
         mode: str = "practice",
+        *args,
+        **kwargs,
     ) -> None:
         self.account_id = account_id
         self.api = oandapy.API(environment=mode, access_token=access_token)
-        self.streamer = OANDAOPYStream(environment=mode, access_token=access_token)
 
     def get_symbols(self):
         """Get available symbols"""
@@ -56,7 +41,7 @@ class OANDA(BaseAPI):
 
     def get_bars(
         self,
-        ticker,
+        symbol,
         timeframe: str = "M1",
         start_time: timedelta = datetime.now() - timedelta(hours=24),
         end_time: timedelta = datetime.now(),
@@ -68,8 +53,8 @@ class OANDA(BaseAPI):
 
         Params
         ------
-        ticker : str
-            ticker to search for
+        symbol : str
+            symbol to search for
         timeframe : str = "M1"
             the timeframe (granularity) - see
             http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
@@ -90,7 +75,7 @@ class OANDA(BaseAPI):
         start = start_time.replace(second=0, microsecond=0).strftime(DTFORMAT)
         end = end_time.replace(second=0, microsecond=0).strftime(DTFORMAT)
         params = {
-            "instrument": ticker,
+            "instrument": symbol,
             "granularity": timeframe,
             "price": book,
             "from": start,
@@ -104,24 +89,24 @@ class OANDA(BaseAPI):
             df["close"] = (df["closeBid"] + df["closeAsk"]) / 2
 
             logger.info(
-                f"Fetched {df.shape[0]} bars for '{ticker}' from {start} to {end} with freq {timeframe} and resample {resample}"
+                f"Fetched {df.shape[0]} bars for '{symbol}' from {start} to {end} with freq {timeframe} and resample {resample}"
             )
             if resample > 1:
                 df = df.iloc[df.shape[0] % resample - 1 :: resample]
             return df
         except Exception as e:
             logger.warning(
-                f"Couldn't get bars for {ticker} from {start} to {end} with freq {timeframe} ({e})"
+                f"Couldn't get bars for {symbol} from {start} to {end} with freq {timeframe} ({e})"
             )
             return pd.DataFrame()
 
-    def submit_limit_order(self, ticker, side, price, qty=1, time_in_force="day"):
+    def submit_limit_order(self, symbol, side, price, qty=1, time_in_force="day"):
         """Submit a limit order
 
         Params
         ------
-        ticker : str
-            ticker to act on
+        symbol : str
+            symbol to act on
         side : str
             buy or sell
         price : float
@@ -137,7 +122,7 @@ class OANDA(BaseAPI):
         """
         try:
             self.api.submit_order(
-                symbol=ticker,
+                symbol=symbol,
                 qty=qty,  # fractional shares
                 side=side,
                 type="limit",
@@ -145,12 +130,12 @@ class OANDA(BaseAPI):
                 time_in_force=time_in_force,
             )
             logger.info(
-                f"Submitted limit {side} order for {qty} {ticker} @ ${price} (TIF={time_in_force})"
+                f"Submitted limit {side} order for {qty} {symbol} @ ${price} (TIF={time_in_force})"
             )
             return True
         except Exception as e:
             logger.warning(
-                f"Couldn't submit limit {side} order for {qty} {ticker} @ ${price} ({e})"
+                f"Couldn't submit limit {side} order for {qty} {symbol} @ ${price} ({e})"
             )
             return False
 

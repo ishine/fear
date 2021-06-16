@@ -117,7 +117,7 @@ class Screener:
     def get_trending(self, count: int = 100):
         """Pulls trending stocks and returns a dataframe"""
         logger.info("Fetching trending stocks from yfinance")
-        url = "https://finance.yahoo.com/trending-tickers"
+        url = "https://finance.yahoo.com/trending-symbols"
         response = requests.get(url + f"?offset=0&count={count}", headers=self.headers)
         soup = BeautifulSoup(response.content, "lxml")
         items = []

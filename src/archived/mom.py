@@ -3,10 +3,10 @@ from statistics import mean
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from strategies.base import BaseStrategy
+from strategies_support.base import BasePredictor
 
 
-class MOMStrategy(BaseStrategy):
+class MOMStrategy(BasePredictor):
     def __init__(
         self,
         lags: int = 7,

@@ -1,5 +1,5 @@
 from numpy.core.numeric import NaN
-from base import BaseStrategy
+from base import BasePredictor
 from sys import exc_info
 import numpy as np, pandas as pd
 import logging, warnings
@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class VAR(BaseStrategy):
+class VAR(BasePredictor):
     def __init__(
         self,
         window: int = 20,
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         end_time=datetime.now(),
     )
 
-    # create fednn
+    # create fepredictors
     var = VAR()
     # evaluate
     var.evaluate(data, tt_split=0.8, securityname=symbol)

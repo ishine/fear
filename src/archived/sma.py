@@ -10,7 +10,7 @@ mpl.rcParams["font.family"] = "serif"
 
 
 class BacktestBase(object):
-    """Base class for event-based backtesting of trading strategies.
+    """Base class for event-based backtesting of trading strategies_support.
 
     Attributes
     ==========
@@ -214,7 +214,7 @@ class BacktestLongOnly(BacktestBase):
 
 if __name__ == "__main__":
 
-    def run_strategies():
+    def run_strategies_support():
         lobt.run_sma_strategy(42, 252)
         lobt.run_momentum_strategy(60)
 

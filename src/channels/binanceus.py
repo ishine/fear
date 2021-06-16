@@ -2,10 +2,19 @@ try:
     from channels.base import BaseAPI
 except:
     from base import BaseAPI
-from binance import Client
+
+import random, asyncio
 from datetime import datetime, timedelta
+from twisted.internet import reactor
+
 import pandas as pd
-import random
+from binance import (
+    AsyncClient,
+    BinanceSocketManager,
+    Client,
+    ThreadedWebsocketManager,
+    client,
+)
 
 DTFORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -21,32 +30,30 @@ class BinanceUS(BaseAPI):
         api_secret=open("keys/binanceus-private").read().strip(),
     ) -> None:
         self.client = Client(api_key, api_secret, tld="us")
-        self.availables = [
-            x["symbol"] for x in self.client.get_all_tickers()
-        ]  # available symbols
+        self.stream = ThreadedWebsocketManager(api_key, api_secret)
 
-    def get_all_tickers(self):
-        return self.client.get_all_tickers()
+    def get_all_symbols(self):
+        return self.client.get_all_symbols()
 
-    def get_ticker(self, ticker):
-        """Get the latest price for a ticker"""
+    def get_symbol(self, symbol):
+        """Get the latest price for a symbol"""
         try:
-            return self.client.get_symbol_ticker(symbol=ticker)["price"]
+            return self.client.get_symbol_symbol(symbol=symbol)["price"]
         except:
             return -1
 
     def get_bars(
         self,
-        ticker,
+        symbol,
         interval=Client.KLINE_INTERVAL_1MINUTE,
         start_time=datetime.now() - timedelta(hours=24),
         end_time=datetime.now(),
     ):
-        """Get the bars (historical) for ticker
+        """Get the bars (historical) for symbol
         Params
         ------
-        ticker : str
-            ticker to search for
+        symbol : str
+            symbol to search for
         timeframe : ? = Client.KLINE_INTERVAL_1MINUTE
             the timeframe
         start_time : timedelta = datetime.now() - timedelta(hours=24),
@@ -61,7 +68,7 @@ class BinanceUS(BaseAPI):
 
         try:
             klines = self.client.get_historical_klines(
-                ticker, interval, start, end
+                symbol, interval, start, end
             )  # raw
 
             # convert to float
@@ -96,12 +103,12 @@ class BinanceUS(BaseAPI):
             df.drop("timestamp", axis=1, inplace=True)
             df = df[["open", "high", "low", "close", "volume"]]
             logger.info(
-                f"Fetched {df.shape[0]} bars for '{ticker}' from {start} to {end}"
+                f"Fetched {df.shape[0]} bars for '{symbol}' from {start} to {end}"
             )
             return df
         except Exception as e:
             logger.warning(
-                f"Couldn't get bars for {ticker} from {start} to {end} with freq {interval} ({e})"
+                f"Couldn't get bars for {symbol} from {start} to {end} with freq {interval} ({e})"
             )
             return pd.DataFrame()
 
@@ -109,7 +116,7 @@ class BinanceUS(BaseAPI):
 if __name__ == "__main__":
     btest = BinanceUS()
     btest.get_bars("BTCUSD")
-    tickers = [
+    symbols = [
         "BTCUSD",
         "ETHUSD",
         "DASHUSD",
@@ -117,13 +124,13 @@ if __name__ == "__main__":
         "LTCUSD",
         "XTZUSD",
     ]
-    random.shuffle(tickers)
+    random.shuffle(symbols)
 
     bowler = Bowl(window=15, sigma=1.85)
     # bowler = MeanReversion()
-    for ticker in tickers:
-        print(f"[{ticker}]")
+    for symbol in symbols:
+        print(f"[{symbol}]")
         # bowler.optimize(df["close"])
-        df = btest.get_bars(ticker)
+        df = btest.get_bars(symbol)
 
         bowler.backtest(df["close"], loud=True)

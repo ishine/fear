@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 from channels.alpaca import Alpaca, TimeFrame
 from channels.binanceus import BinanceUS
 from channels.screener import Screener
-from strategies.base import BaseCycler, BaseStrategy
-from strategies.dnn import FEDNNStrategy
-from strategies.knearest import FEKNNStrategy
+from strategies_support.base import BaseCycler, BasePredictor
+from strategies_support.predictors import FEDNNPredictor
+from strategies_support.predictors import FEKNNPredictor
 
 
 class TestScreener(unittest.TestCase):

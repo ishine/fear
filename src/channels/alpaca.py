@@ -1,6 +1,7 @@
 from os import stat
 from re import S, search
 from alpaca_trade_api.rest import *
+from alpaca_trade_api.stream import *
 from datetime import date, datetime, timedelta
 from time import sleep
 from abraham3k import Abraham
@@ -31,10 +32,11 @@ class Alpaca(BaseAPI):
         self.api = REST(
             key_id=api_key, secret_key=api_secret, base_url=base_url, api_version="v2"
         )
+        self.stream = Stream(key_id=api_key, secret_key=api_secret, base_url=base_url)
 
     def get_bars(
         self,
-        ticker,
+        symbol,
         timeframe=TimeFrame.Minute,
         start_time=datetime.now() - timedelta(hours=24),
         end_time=datetime.now(),
@@ -44,8 +46,8 @@ class Alpaca(BaseAPI):
 
         Params
         ------
-        ticker : str
-            ticker to search for
+        symbol : str
+            symbol to search for
         timeframe : TimeFrame = TimeFrame.Minute
             the timeframe
         start_time : timedelta = datetime.now() - timedelta(hours=24),
@@ -62,27 +64,27 @@ class Alpaca(BaseAPI):
 
         try:
             df = self.api.get_bars(
-                ticker,
+                symbol,
                 timeframe,
                 start,
                 end,
                 adjustment="raw",
             ).df
             logger.info(
-                f"Fetched {df.shape[0]} bars for '{ticker}' from {start} to {end} with freq {timeframe} and resample {resample}"
+                f"Fetched {df.shape[0]} bars for '{symbol}' from {start} to {end} with freq {timeframe} and resample {resample}"
             )
             if resample > 1:
                 df = df.iloc[df.shape[0] % resample - 1 :: resample]
             return df
         except Exception as e:
             logger.warning(
-                f"Couldn't get bars for {ticker} from {start} to {end} with freq {timeframe} ({e})"
+                f"Couldn't get bars for {symbol} from {start} to {end} with freq {timeframe} ({e})"
             )
             return pd.DataFrame()
 
     def import_stock_data(
         self,
-        tickers: list,
+        symbols: list,
         start_time: timedelta = datetime.now() - timedelta(days=365),
         end_time=datetime.now(),
         interval: timedelta = TimeFrame.Day,
@@ -92,8 +94,8 @@ class Alpaca(BaseAPI):
 
         Params
         ------
-        ticker : str
-            ticker to search for
+        symbol : str
+            symbol to search for
         timeframe : TimeFrame = TimeFrame.Minute
             the timeframe
         start_time : timedelta = datetime.now() - timedelta(hours=24),
@@ -104,28 +106,28 @@ class Alpaca(BaseAPI):
         data : pd.DataFrame
         """
         data = pd.DataFrame()
-        if type(tickers) == list:
-            for ticker in tickers:
+        if type(symbols) == list:
+            for symbol in symbols:
                 try:
-                    data[ticker] = self.get_bars(
-                        ticker,
+                    data[symbol] = self.get_bars(
+                        symbol,
                         timeframe=interval,
                         start_time=start_time,
                         end_time=end_time,
                     )["close"]
                 except Exception as e:
-                    logger.warning(f"Unknown error occured while fetching tickers: {e}")
+                    logger.warning(f"Unknown error occured while fetching symbols: {e}")
         else:
-            logger.warning(f"Input '{tickers}' is not a list of tickers.")
+            logger.warning(f"Input '{symbols}' is not a list of symbols.")
         return data
 
-    def submit_limit_order(self, ticker, side, price, qty=1, time_in_force="day"):
+    def submit_limit_order(self, symbol, side, price, qty=1, time_in_force="day"):
         """Submit a limit order
 
         Params
         ------
-        ticker : str
-            ticker to act on
+        symbol : str
+            symbol to act on
         side : str
             buy or sell
         price : float
@@ -141,7 +143,7 @@ class Alpaca(BaseAPI):
         """
         try:
             self.api.submit_order(
-                symbol=ticker,
+                symbol=symbol,
                 qty=qty,  # fractional shares
                 side=side,
                 type="limit",
@@ -149,22 +151,22 @@ class Alpaca(BaseAPI):
                 time_in_force=time_in_force,
             )
             logger.info(
-                f"Submitted limit {side} order for {qty} {ticker} @ ${price} (TIF={time_in_force})"
+                f"Submitted limit {side} order for {qty} {symbol} @ ${price} (TIF={time_in_force})"
             )
             return True
         except Exception as e:
             logger.warning(
-                f"Couldn't submit limit {side} order for {qty} {ticker} @ ${price} ({e})"
+                f"Couldn't submit limit {side} order for {qty} {symbol} @ ${price} ({e})"
             )
             return False
 
-    def submit_limit_buy(self, ticker, price, qty=1, time_in_force="day"):
+    def submit_limit_buy(self, symbol, price, qty=1, time_in_force="day"):
         """Submit a limit order
 
         Params
         ------
-        ticker : str
-            ticker to act on
+        symbol : str
+            symbol to act on
         price : float
             price to buy at
         qty : int
@@ -179,7 +181,7 @@ class Alpaca(BaseAPI):
         side = "buy"
         try:
             self.api.submit_order(
-                symbol=ticker,
+                symbol=symbol,
                 qty=qty,  # fractional shares
                 side=side,
                 type="limit",
@@ -187,22 +189,22 @@ class Alpaca(BaseAPI):
                 time_in_force=time_in_force,
             )
             logger.info(
-                f"Submitted limit {side} order for {qty} {ticker} @ ${price} (TIF={time_in_force})"
+                f"Submitted limit {side} order for {qty} {symbol} @ ${price} (TIF={time_in_force})"
             )
             return True
         except Exception as e:
             logger.warning(
-                f"Couldn't submit limit {side} order for {qty} {ticker} @ ${price} ({e})"
+                f"Couldn't submit limit {side} order for {qty} {symbol} @ ${price} ({e})"
             )
             return False
 
-    def submit_limit_sell(self, ticker, price, qty=1, time_in_force="day"):
+    def submit_limit_sell(self, symbol, price, qty=1, time_in_force="day"):
         """Submit a limit order
 
         Params
         ------
-        ticker : str
-            ticker to act on
+        symbol : str
+            symbol to act on
         price : float
             price to buy at
         qty : int
@@ -217,7 +219,7 @@ class Alpaca(BaseAPI):
         side = "sell"
         try:
             self.api.submit_order(
-                symbol=ticker,
+                symbol=symbol,
                 qty=qty,  # fractional shares
                 side=side,
                 type="limit",
@@ -225,22 +227,22 @@ class Alpaca(BaseAPI):
                 time_in_force=time_in_force,
             )
             logger.info(
-                f"Submitted limit {side} order for {qty} {ticker} @ ${price} (TIF={time_in_force})"
+                f"Submitted limit {side} order for {qty} {symbol} @ ${price} (TIF={time_in_force})"
             )
             return True
         except Exception as e:
             logger.warning(
-                f"Couldn't submit limit {side} order for {qty} {ticker} @ ${price} ({e})"
+                f"Couldn't submit limit {side} order for {qty} {symbol} @ ${price} ({e})"
             )
             return False
 
-    def submit_market_order(self, ticker, side, qty=1, time_in_force="day"):
+    def submit_market_order(self, symbol, side, qty=1, time_in_force="day"):
         """Submit a market order
 
         Params
         ------
-        ticker : str
-            ticker to act on
+        symbol : str
+            symbol to act on
         side : str
             buy or sell
         qty : int
@@ -254,7 +256,7 @@ class Alpaca(BaseAPI):
         """
         try:
             self.api.submit_order(
-                symbol=ticker,
+                symbol=symbol,
                 qty=qty,  # fractional shares
                 side=side,
                 type="market",
@@ -263,7 +265,7 @@ class Alpaca(BaseAPI):
             return True
         except Exception as e:
             logger.warning(
-                f"Couldn't submit market {side} order for {qty} {ticker} ({e})"
+                f"Couldn't submit market {side} order for {qty} {symbol} ({e})"
             )
             return False
 
@@ -288,18 +290,18 @@ class Alpaca(BaseAPI):
             logger.warning(f"Couldn't get open orders ({e})")
             return True  # better safe than sorry
 
-    def get_position(self, ticker):
-        """Gets the position for a ticker"""
+    def get_position(self, symbol):
+        """Gets the position for a symbol"""
         try:
-            return self.api.get_position(ticker)
+            return self.api.get_position(symbol)
         except Exception as e:
-            logger.warning(f"Couldn't get position for {ticker} ({e})")
+            logger.warning(f"Couldn't get position for {symbol} ({e})")
             return {}
 
-    def get_shares(self, ticker):
-        """Returns the share count that you possess for a ticker"""
+    def get_shares(self, symbol):
+        """Returns the share count that you possess for a symbol"""
         try:
-            return self.api.get_position(ticker)["qty"]
+            return self.api.get_position(symbol)["qty"]
         except Exception as e:  # effectively 0 then
             return 0
 

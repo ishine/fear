@@ -1,6 +1,6 @@
 from channels.binanceus import BinanceUS
 from pprint import pformat, pprint
-from strategies_support.predictors import FEDNNPredictor
+from strategies_support.predictors import FEDNNPredictor, FEKNNPredictor
 from strategies_support.cyclers import BaseCycler
 from channels.alpaca import Alpaca
 from db.tables import Bar, Quote
@@ -62,6 +62,7 @@ class FEARv1Binance(BaseCycler):
                 "num_trades",
             ]
         )  # for tracking
+        self.knn = FEKNNPredictor()
         if reset:
             reset_tables(self.engine)
 
@@ -106,11 +107,26 @@ class FEARv1Binance(BaseCycler):
         )  # for database
         return bar_obj
 
+    def build_models(self, data):
+        """Get the data and build"""
+
+    def train_models(self, data):
+        """Get the data and train"""
+
+    def decide(self, data):
+        """Decide decision"""
+
+    def get_data(self, symbol: str, how_far_back: int = 1000):
+        """Pull from database"""
+        full = get(self.engine, Bar, symbol)
+        return full.tail(how_far_back)
+
     def on_quote(self, msg):
         """Callback"""
         bar = self.create_bar(msg)
-        logger.info(bar)
+        logger.debug(bar)
         self.append_bar_track(bar)
+        signal = "hold"
 
     def cycle_trades(
         self,
@@ -126,4 +142,5 @@ class FEARv1Binance(BaseCycler):
 
 if __name__ == "__main__":
     fv1 = FEARv1Binance("mysql", "test", "test", "localhost", "3306", "fear")
+    print(fv1.get_data("BTCUSDT"))
     fv1.cycle("BTCUSDT", "bitcoin good")

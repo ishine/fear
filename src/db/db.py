@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from math import floor, log
-
+import pandas as pd
 from sqlalchemy.orm.session import Session
 
 USER = "test"
@@ -62,6 +62,14 @@ def add(engine, data):
     session = create_session(engine)
     session.add(data)
     session.commit()
+
+
+def get(engine, cls_type, symbol):
+    session = create_session(engine)
+    queried = pd.read_sql(
+        session.query(cls_type).filter_by(symbol=symbol).statement, session.bind
+    )
+    return queried
 
 
 def bulk_add(engine, data: list):

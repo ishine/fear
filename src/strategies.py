@@ -14,6 +14,8 @@ from multiprocessing import Pool, Process
 import threading
 from abraham3k.prophets import Abraham
 from time import sleep
+import time
+from copy import copy
 
 DTFORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -44,7 +46,7 @@ class FEARv1Alpaca(BaseCycler):
 
 class FEARv1Binance(BaseCycler):
     def __init__(
-        self, connection, username, password, host, port, database, reset=False
+        self, symbol, connection, username, password, host, port, database, reset=False
     ) -> None:
         super().__init__(connection, username, password, host, port, database)
         self.api = BinanceUS()
@@ -60,28 +62,35 @@ class FEARv1Binance(BaseCycler):
                 "open_time",
                 "close_time",
                 "num_trades",
+                "bar",
             ]
         )  # for tracking
-        self.knn = FEKNNPredictor()
+        self.symbol = symbol
+        self.pull_data(self.symbol)
+
+        self.knn = FEKNNPredictor()  # edit features?
         if reset:
             reset_tables(self.engine)
 
     def append_bar_track(self, bar: Bar):
         """Append a bar object to bar_track and database"""
-        row = [
-            bar.datetime,
-            bar.symbol,
-            bar.opn,
-            bar.close,
-            bar.low,
-            bar.high,
-            bar.volume,
-            bar.open_time,
-            bar.close_time,
-            bar.num_trades,
-        ]
+        row = {  # change to dict
+            "datetime": bar.datetime,
+            "symbol": bar.symbol,
+            "opn": bar.opn,
+            "close": bar.close,
+            "low": bar.low,
+            "high": bar.high,
+            "volume": bar.volume,
+            "open_time": bar.open_time,
+            "close_time": bar.close_time,
+            "num_trades": bar.num_trades,
+            "bar": copy(bar),
+        }
         self.bar_track.loc[self.bar_track.shape[0]] = row
-        add(self.engine, bar)
+        add(
+            self.engine, bar
+        )  # take 5 ms so move to period writing the track as a batch
 
     def create_bar(self, raw_bar):
         """Create bar obj from bar msg"""
@@ -109,17 +118,22 @@ class FEARv1Binance(BaseCycler):
 
     def build_models(self, data):
         """Get the data and build"""
+        self.knn.build(data)
 
     def train_models(self, data):
         """Get the data and train"""
+        self.knn.train(data)
 
     def decide(self, data):
         """Decide decision"""
 
-    def get_data(self, symbol: str, how_far_back: int = 1000):
-        """Pull from database"""
+    def pull_data(self, symbol: str, how_far_back: int = 1000):
+        """Pull from database and load into rolling dataframe"""
         full = get(self.engine, Bar, symbol)
-        return full.tail(how_far_back)
+        trimmed = full.tail(how_far_back)
+        self.bar_track = pd.concat([self.bar_track, trimmed]).sort_values(
+            by="datetime", ascending=True
+        )
 
     def on_quote(self, msg):
         """Callback"""
@@ -127,6 +141,7 @@ class FEARv1Binance(BaseCycler):
         logger.debug(bar)
         self.append_bar_track(bar)
         signal = "hold"
+        print(self.bar_track)
 
     def cycle_trades(
         self,
@@ -139,8 +154,13 @@ class FEARv1Binance(BaseCycler):
         self.api.stream.start_kline_socket(callback=self.on_quote, symbol=symbol)
         self.api.stream.join()  # block
 
+    def cycle_train(self, symbol: str, period: timedelta):
+        """Cycle trading"""
+        logger.info(f"Start train for {symbol}")
+
 
 if __name__ == "__main__":
-    fv1 = FEARv1Binance("mysql", "test", "test", "localhost", "3306", "fear")
-    print(fv1.get_data("BTCUSDT"))
+    fv1 = FEARv1Binance("BTCUSDT", "mysql", "test", "test", "localhost", "3306", "fear")
+    fv1.pull_data("BTCUSDT")
+    print(fv1.bar_track)
     fv1.cycle("BTCUSDT", "bitcoin good")
